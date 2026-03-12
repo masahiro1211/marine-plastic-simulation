@@ -4,6 +4,11 @@ from pydantic import BaseModel
 
 
 class SimulationConfig(BaseModel):
+    """シミュレーションの設定パラメータを定義するスキーマ。
+
+    フィールドサイズ、各エージェントの数・速度、ティック間隔を保持する。
+    """
+
     width: float = 800
     height: float = 600
     num_fish: int = 50
@@ -16,6 +21,11 @@ class SimulationConfig(BaseModel):
 
 
 class AgentState(BaseModel):
+    """個別エージェントの状態を表すスキーマ。
+
+    エージェントのID、種別、座標、角度、エネルギー、生存状態を保持する。
+    """
+
     id: int
     agent_type: str
     x: float
@@ -26,6 +36,11 @@ class AgentState(BaseModel):
 
 
 class StatsEntry(BaseModel):
+    """1ティック分の統計情報を表すスキーマ。
+
+    各エージェント種別の生存数と合計数を保持する。
+    """
+
     tick: int
     fish: int
     predators: int
@@ -34,6 +49,11 @@ class StatsEntry(BaseModel):
 
 
 class SimulationSnapshot(BaseModel):
+    """シミュレーションのスナップショットを表すスキーマ。
+
+    現在のティック数、全エージェントの状態、統計情報を保持する。
+    """
+
     tick: int
     agents: list[AgentState]
     stats: StatsEntry

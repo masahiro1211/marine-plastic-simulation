@@ -7,7 +7,11 @@ from app.simulation.agents.base import BaseAgent
 
 
 class Fish(BaseAgent):
-    """Small fish using Boids-like flocking behaviour."""
+    """Boids風の群れ行動をする小型魚エージェント。
+
+    分離・整列・結合の3ルールに基づいて群れを形成し、
+    捕食者から逃避し、プラスチックによるダメージを受ける。
+    """
 
     AGENT_TYPE = "fish"
 
@@ -17,10 +21,27 @@ class Fish(BaseAgent):
     PLASTIC_DAMAGE_RADIUS = 15.0
 
     def __init__(self, x: float, y: float, speed: float = 2.0):
+        """小型魚エージェントを初期化する。
+
+        Args:
+            x: 初期X座標。
+            y: 初期Y座標。
+            speed: 移動速度。デフォルトは2.0。
+        """
         super().__init__(x, y)
         self.speed = speed
 
     def update(self, agents: list[BaseAgent], width: float, height: float) -> None:
+        """魚の状態を1ティック分更新する。
+
+        群れ行動（分離・整列・結合）、捕食者からの逃避、
+        プラスチックによるダメージ処理を行い、位置を更新する。
+
+        Args:
+            agents: シミュレーション内の全エージェントのリスト。
+            width: フィールドの幅。
+            height: フィールドの高さ。
+        """
         if not self.alive:
             return
 

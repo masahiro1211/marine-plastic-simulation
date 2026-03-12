@@ -1,3 +1,8 @@
+"""海洋プラスチックシミュレーションのFastAPIアプリケーションエントリポイント。
+
+CORSミドルウェアの設定と各APIルーターの登録を行う。
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

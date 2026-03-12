@@ -1,3 +1,5 @@
+"""WebSocketによるリアルタイムシミュレーション通信を行うルーター。"""
+
 import asyncio
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -10,6 +12,14 @@ router = APIRouter(tags=["websocket"])
 
 @router.websocket("/ws/simulation")
 async def simulation_ws(websocket: WebSocket):
+    """WebSocket接続でシミュレーションをリアルタイムに実行・配信する。
+
+    クライアントからのアクション（stop, reset, update_config）を受け付けつつ、
+    ティックごとにスナップショットをクライアントへ送信する。
+
+    Args:
+        websocket: クライアントとのWebSocket接続。
+    """
     engine = get_engine()
     await websocket.accept()
     engine.running = True
