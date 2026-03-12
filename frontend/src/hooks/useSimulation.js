@@ -7,7 +7,7 @@ const API_URL =
 
 export default function useSimulation() {
   const [agents, setAgents] = useState([]);
-  const [stats, setStats] = useState({ fish: 0, predators: 0, plastics: 0 });
+  const [stats, setStats] = useState({ fish: 0, predators: 0, plastics: 0, total: 0 });
   const [tick, setTick] = useState(0);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef(null);
@@ -33,14 +33,14 @@ export default function useSimulation() {
     }
   }, []);
 
-  const sendAction = useCallback((action, config) => {
+  const sendAction = useCallback((action, payload) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action, config }));
+      wsRef.current.send(JSON.stringify({ action, ...payload }));
     }
   }, []);
 
   const reset = useCallback(
-    (config) => sendAction("reset", config),
+    (config) => sendAction("reset", { config }),
     [sendAction]
   );
 
@@ -49,13 +49,18 @@ export default function useSimulation() {
   const resetViaApi = useCallback(async (config) => {
     if (config) {
       await fetch(`${API_URL}/api/config`, {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       });
     } else {
-      await fetch(`${API_URL}/api/reset`, { method: "POST" });
+      await fetch(`${API_URL}/api/simulation/reset`, { method: "POST" });
     }
+  }, []);
+
+  const fetchStatsHistory = useCallback(async () => {
+    const r = await fetch(`${API_URL}/api/stats/history`);
+    return r.json();
   }, []);
 
   useEffect(() => {
@@ -72,5 +77,6 @@ export default function useSimulation() {
     reset,
     stop,
     resetViaApi,
+    fetchStatsHistory,
   };
 }

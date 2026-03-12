@@ -53,6 +53,7 @@ export default function ControlPanel({
         ["num_plastics", "Plastic Count"],
         ["fish_speed", "Fish Speed"],
         ["predator_speed", "Predator Speed"],
+        ["plastic_drift_speed", "Drift Speed"],
         ["tick_interval_ms", "Tick (ms)"],
       ].map(([key, label]) => (
         <label key={key} style={styles.label}>

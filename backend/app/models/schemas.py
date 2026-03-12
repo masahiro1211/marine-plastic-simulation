@@ -1,19 +1,6 @@
+from __future__ import annotations
+
 from pydantic import BaseModel
-
-
-class Position(BaseModel):
-    x: float
-    y: float
-
-
-class AgentState(BaseModel):
-    id: int
-    agent_type: str  # "fish", "predator", "plastic"
-    x: float
-    y: float
-    angle: float
-    energy: float
-    alive: bool
 
 
 class SimulationConfig(BaseModel):
@@ -28,7 +15,25 @@ class SimulationConfig(BaseModel):
     tick_interval_ms: int = 50
 
 
+class AgentState(BaseModel):
+    id: int
+    agent_type: str
+    x: float
+    y: float
+    angle: float
+    energy: float
+    alive: bool
+
+
+class StatsEntry(BaseModel):
+    tick: int
+    fish: int
+    predators: int
+    plastics: int
+    total: int
+
+
 class SimulationSnapshot(BaseModel):
     tick: int
     agents: list[AgentState]
-    stats: dict
+    stats: StatsEntry
