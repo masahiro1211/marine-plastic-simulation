@@ -105,8 +105,13 @@ marine-plastic-simulation/
     └── src/
         ├── App.js
         ├── hooks/useSimulation.js  # WebSocket / REST 通信
+        ├── renderers/
+        │   ├── registry.js         # agent_type → renderer のマッピング
+        │   ├── fishRenderer.js     # 魚の描画
+        │   ├── predatorRenderer.js # 捕食者の描画
+        │   └── plasticRenderer.js  # プラスチックの描画
         └── components/
-            ├── Canvas.js           # Canvas 描画
+            ├── Canvas.js           # Canvas 描画（registry経由）
             ├── ControlPanel.js     # 操作パネル
             └── StatsPanel.js       # 統計表示
 ```
@@ -377,4 +382,8 @@ const handleReset = (config) => {
 };
 ```
 
-`GET /api/stats/history` は `useSimulation` の `fetchStatsHistory()` で取得可能です（グラフ機能を追加する際に使
+`GET /api/stats/history` は `useSimulation` の `fetchStatsHistory()` で取得可能です（グラフ機能を追加する際に使用）。
+
+## ライセンス
+
+MIT
