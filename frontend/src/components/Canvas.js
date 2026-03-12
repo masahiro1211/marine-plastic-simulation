@@ -1,16 +1,5 @@
 import React, { useEffect, useRef } from "react";
-
-const COLORS = {
-  fish: "#4fc3f7",
-  predator: "#ef5350",
-  plastic: "#a1887f",
-};
-
-const SIZES = {
-  fish: 5,
-  predator: 9,
-  plastic: 4,
-};
+import { getRenderer } from "../renderers/registry";
 
 export default function Canvas({ agents, width = 800, height = 600 }) {
   const canvasRef = useRef(null);
@@ -27,28 +16,15 @@ export default function Canvas({ agents, width = 800, height = 600 }) {
     ctx.fillRect(0, 0, width, height);
 
     for (const agent of agents) {
+      const renderer = getRenderer(agent.agent_type);
+
       ctx.save();
       ctx.translate(agent.x, agent.y);
       ctx.rotate(agent.angle);
+      ctx.fillStyle = renderer.color;
+      ctx.globalAlpha = 1.0;
 
-      const color = COLORS[agent.agent_type] || "#fff";
-      const size = SIZES[agent.agent_type] || 4;
-
-      if (agent.agent_type === "plastic") {
-        // Draw plastic as a small square
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.7;
-        ctx.fillRect(-size / 2, -size / 2, size, size);
-      } else {
-        // Draw fish / predator as a triangle pointing in the direction of travel
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.moveTo(size, 0);
-        ctx.lineTo(-size, -size * 0.6);
-        ctx.lineTo(-size, size * 0.6);
-        ctx.closePath();
-        ctx.fill();
-      }
+      renderer.draw(ctx, renderer.size, agent);
 
       ctx.restore();
     }

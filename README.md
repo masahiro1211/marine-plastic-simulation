@@ -187,24 +187,37 @@ for _ in range(5):
     self.agents.append(Turtle(random.uniform(0, w), random.uniform(0, h)))
 ```
 
-#### 4. フロントエンドで描画
+#### 4. フロントエンドに renderer を追加
 
-`frontend/src/components/Canvas.js` の `COLORS` と `SIZES` に追加:
+`frontend/src/renderers/turtleRenderer.js` を作成:
 
 ```js
-const COLORS = {
-  fish: "#4fc3f7",
-  predator: "#ef5350",
-  plastic: "#a1887f",
-  turtle: "#66bb6a",   // 追加
+const turtleRenderer = {
+  color: "#66bb6a",
+  size: 8,
+  draw(ctx, size, agent) {
+    // 甲羅（楕円）
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size, size * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 頭
+    ctx.beginPath();
+    ctx.arc(size * 0.8, 0, size * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  },
 };
 
-const SIZES = {
-  fish: 5,
-  predator: 9,
-  plastic: 4,
-  turtle: 8,           // 追加
-};
+export default turtleRenderer;
+```
+
+`frontend/src/renderers/registry.js` に登録:
+
+```js
+import turtleRenderer from "./turtleRenderer";
+
+// renderers オブジェクトに追加
+turtle: turtleRenderer,
 ```
 
 #### 5. (任意) パラメータを設定可能にする
@@ -227,6 +240,69 @@ class SimulationConfig(BaseModel):
 | `wrap_position(w, h)` | 画面端で反対側にワープ (トーラス空間) |
 | `neighbours_by_type(agents, type, radius)` | 指定タイプの近傍エージェントを取得 |
 | `to_dict()` | JSON シリアライズ用の辞書を返す |
+
+## エージェントの見た目 (Renderer)
+
+各エージェントの描画は `frontend/src/renderers/` で管理されています。
+
+```
+frontend/src/renderers/
+├── registry.js           # agent_type → renderer のマッピング
+├── fishRenderer.js       # 魚（三角形・水色）
+├── predatorRenderer.js   # 捕食者（三角形・赤・大きめ）
+└── plasticRenderer.js    # プラスチック（四角形・半透明・茶色）
+```
+
+### renderer の構造
+
+各 renderer は以下のプロパティを持つオブジェクトです:
+
+```js
+const exampleRenderer = {
+  color: "#4fc3f7",       // 塗りつぶし色
+  size: 5,                // 基本サイズ
+  draw(ctx, size, agent) {
+    // ctx: Canvas 2D コンテキスト
+    // size: this.size の値
+    // agent: { id, agent_type, x, y, angle, energy, alive }
+    //
+    // ここで Canvas API を使って自由に描画する
+  },
+};
+```
+
+`draw()` が呼ばれる時点で、Canvas は既に `translate(x, y)` と `rotate(angle)` 済みです。原点 `(0, 0)` を中心に描画すれば、正しい位置・向きで表示されます。
+
+### 使える Canvas 描画メソッド
+
+| メソッド | 形状 |
+|---------|------|
+| `lineTo(x, y)` | 直線 |
+| `arc(x, y, r, start, end)` | 円・円弧 |
+| `ellipse(x, y, rx, ry, ...)` | 楕円 |
+| `quadraticCurveTo(cpx, cpy, x, y)` | 二次ベジェ曲線 |
+| `bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y)` | 三次ベジェ曲線 |
+| `fillRect(x, y, w, h)` | 矩形 |
+
+### agent の状態で見た目を変える
+
+`draw()` の第3引数 `agent` を使って、状態に応じた描画ができます:
+
+```js
+draw(ctx, size, agent) {
+  // エネルギーが減ると赤くなる
+  const ratio = agent.energy / 100;
+  ctx.fillStyle = `rgb(${255 - ratio * 180}, ${ratio * 195}, ${ratio * 247})`;
+
+  ctx.beginPath();
+  ctx.arc(0, 0, size, 0, Math.PI * 2);
+  ctx.fill();
+},
+```
+
+### 未登録の agent_type
+
+registry に登録されていない agent_type は白い丸でフォールバック描画されます。
 
 ## API エンドポイント
 
