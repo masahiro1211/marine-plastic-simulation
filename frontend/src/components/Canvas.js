@@ -8,7 +8,6 @@ export default function Canvas({ agents, width = 800, height = 600 }) {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
 
-    // Background — ocean gradient
     const grad = ctx.createLinearGradient(0, 0, 0, height);
     grad.addColorStop(0, "#0d47a1");
     grad.addColorStop(1, "#1a237e");
@@ -35,7 +34,7 @@ export default function Canvas({ agents, width = 800, height = 600 }) {
       ref={canvasRef}
       width={width}
       height={height}
-      style={{ border: "2px solid #1565c0", borderRadius: 8 }}
+      className="border-2 border-blue-800 rounded-lg"
     />
   );
 }

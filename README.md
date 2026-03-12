@@ -7,7 +7,7 @@
 | レイヤー | 技術 |
 |----------|------|
 | バックエンド | Python 3.12 / FastAPI / WebSocket |
-| フロントエンド | React 19 / Canvas API |
+| フロントエンド | React 19 / Tailwind CSS 3 / Canvas API |
 | インフラ | Docker Compose |
 
 ## 環境構築
@@ -102,9 +102,14 @@ marine-plastic-simulation/
 └── frontend/
     ├── Dockerfile
     ├── package.json
+    ├── tailwind.config.js          # Tailwind 設定（カスタムカラー等）
+    ├── postcss.config.js           # PostCSS 設定
     └── src/
+        ├── index.js                # エントリポイント
+        ├── index.css               # Tailwind ディレクティブ
         ├── App.js
-        ├── hooks/useSimulation.js  # WebSocket / REST 通信
+        ├── hooks/
+        │   └── useSimulation.js    # WebSocket / REST 通信
         ├── renderers/
         │   ├── registry.js         # agent_type → renderer のマッピング
         │   ├── fishRenderer.js     # 魚の描画
@@ -308,6 +313,32 @@ draw(ctx, size, agent) {
 ### 未登録の agent_type
 
 registry に登録されていない agent_type は白い丸でフォールバック描画されます。
+
+## スタイリング (Tailwind CSS)
+
+フロントエンドのスタイリングには Tailwind CSS を使用しています。インラインスタイルや CSS ファイルは使いません。
+
+### カスタムカラー
+
+`frontend/tailwind.config.js` でプロジェクト固有の色を定義しています:
+
+| クラス名 | 色 | 用途 |
+|---------|-----|------|
+| `bg-ocean-bg` | `#0a1929` | 背景 |
+| `text-fish` | `#4fc3f7` | 魚関連のテキスト |
+| `text-predator` | `#ef5350` | 捕食者関連のテキスト |
+| `text-plastic` | `#a1887f` | プラスチック関連のテキスト |
+
+色を変更したい場合は `tailwind.config.js` の `theme.extend.colors` を編集してください。
+
+### 使い方の例
+
+```jsx
+{/* Tailwind のユーティリティクラスで直接スタイルを指定 */}
+<div className="bg-black/60 text-white p-4 rounded-lg">
+  <span className="text-fish">Fish:</span> 42
+</div>
+```
 
 ## API エンドポイント
 

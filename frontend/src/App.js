@@ -25,9 +25,11 @@ export default function App() {
   };
 
   return (
-    <div style={styles.root}>
-      <h1 style={styles.heading}>Marine Plastic Simulation</h1>
-      <div style={styles.main}>
+    <div className="min-h-screen bg-ocean-bg p-6 font-sans">
+      <h1 className="text-fish text-center text-2xl font-bold mb-4">
+        Marine Plastic Simulation
+      </h1>
+      <div className="flex gap-4 justify-center items-start">
         <ControlPanel
           connected={connected}
           onConnect={connect}
@@ -40,23 +42,3 @@ export default function App() {
     </div>
   );
 }
-
-const styles = {
-  root: {
-    minHeight: "100vh",
-    background: "#0a1929",
-    padding: 24,
-    fontFamily: "sans-serif",
-  },
-  heading: {
-    color: "#4fc3f7",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  main: {
-    display: "flex",
-    gap: 16,
-    justifyContent: "center",
-    alignItems: "flex-start",
-  },
-};

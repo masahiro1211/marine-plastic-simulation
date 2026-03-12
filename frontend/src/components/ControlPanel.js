@@ -12,6 +12,16 @@ const DEFAULT_CONFIG = {
   tick_interval_ms: 50,
 };
 
+const FIELDS = [
+  ["num_fish", "Fish Count"],
+  ["num_predators", "Predator Count"],
+  ["num_plastics", "Plastic Count"],
+  ["fish_speed", "Fish Speed"],
+  ["predator_speed", "Predator Speed"],
+  ["plastic_drift_speed", "Drift Speed"],
+  ["tick_interval_ms", "Tick (ms)"],
+];
+
 export default function ControlPanel({
   connected,
   onConnect,
@@ -25,85 +35,45 @@ export default function ControlPanel({
   };
 
   return (
-    <div style={styles.panel}>
-      <h3 style={styles.title}>Controls</h3>
+    <div className="bg-black/60 text-white p-4 rounded-lg min-w-[180px]">
+      <h3 className="text-base font-semibold mb-3">Controls</h3>
 
       {!connected ? (
-        <button style={styles.btn} onClick={onConnect}>
+        <button
+          className="block w-full py-2 mb-2 rounded bg-blue-800 hover:bg-blue-700 text-white text-sm cursor-pointer"
+          onClick={onConnect}
+        >
           Start
         </button>
       ) : (
-        <button style={{ ...styles.btn, background: "#c62828" }} onClick={onDisconnect}>
+        <button
+          className="block w-full py-2 mb-2 rounded bg-red-800 hover:bg-red-700 text-white text-sm cursor-pointer"
+          onClick={onDisconnect}
+        >
           Stop
         </button>
       )}
 
       <button
-        style={{ ...styles.btn, background: "#2e7d32" }}
+        className="block w-full py-2 mb-2 rounded bg-green-800 hover:bg-green-700 text-white text-sm cursor-pointer"
         onClick={() => onReset(config)}
       >
         Reset
       </button>
 
-      <hr style={{ borderColor: "#555", margin: "12px 0" }} />
+      <hr className="border-gray-600 my-3" />
 
-      {[
-        ["num_fish", "Fish Count"],
-        ["num_predators", "Predator Count"],
-        ["num_plastics", "Plastic Count"],
-        ["fish_speed", "Fish Speed"],
-        ["predator_speed", "Predator Speed"],
-        ["plastic_drift_speed", "Drift Speed"],
-        ["tick_interval_ms", "Tick (ms)"],
-      ].map(([key, label]) => (
-        <label key={key} style={styles.label}>
+      {FIELDS.map(([key, label]) => (
+        <label key={key} className="block text-xs mb-2">
           {label}
           <input
             type="number"
             value={config[key]}
             onChange={(e) => handleChange(key, e.target.value)}
-            style={styles.input}
+            className="block w-full p-1 mt-0.5 rounded border border-gray-600 bg-gray-900 text-white text-xs"
           />
         </label>
       ))}
     </div>
   );
 }
-
-const styles = {
-  panel: {
-    background: "rgba(0,0,0,0.6)",
-    color: "#fff",
-    padding: 16,
-    borderRadius: 8,
-    minWidth: 180,
-  },
-  title: { margin: "0 0 12px 0", fontSize: 16 },
-  btn: {
-    display: "block",
-    width: "100%",
-    padding: "8px 0",
-    marginBottom: 8,
-    border: "none",
-    borderRadius: 4,
-    background: "#1565c0",
-    color: "#fff",
-    fontSize: 14,
-    cursor: "pointer",
-  },
-  label: {
-    display: "block",
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  input: {
-    display: "block",
-    width: "100%",
-    padding: 4,
-    marginTop: 2,
-    borderRadius: 4,
-    border: "1px solid #555",
-    background: "#222",
-    color: "#fff",
-  },
-};
