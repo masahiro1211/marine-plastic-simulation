@@ -1,7 +1,13 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { getRenderer } from "../renderers/registry";
+import type { AgentState, BaseState } from "../types";
 
-function drawBase(ctx, base, width, height) {
+function drawBase(
+  ctx: CanvasRenderingContext2D,
+  base: BaseState | null,
+  width: number,
+  height: number
+) {
   if (!base) return;
 
   const seaGradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -24,8 +30,20 @@ function drawBase(ctx, base, width, height) {
   ctx.fill();
 }
 
-export default function Canvas({ agents, base, width = 960, height = 640 }) {
-  const canvasRef = useRef(null);
+interface CanvasProps {
+  agents: AgentState[];
+  base: BaseState;
+  width?: number;
+  height?: number;
+}
+
+export default function Canvas({
+  agents,
+  base,
+  width = 960,
+  height = 640,
+}: CanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");

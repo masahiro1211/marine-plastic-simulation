@@ -1,4 +1,6 @@
-const marineLifeRenderer = {
+import type { Renderer } from "../types";
+
+const marineLifeRenderer: Renderer = {
   color: "#7dd3fc",
   size: 11,
   draw(ctx, size, agent) {
@@ -13,7 +15,8 @@ const marineLifeRenderer = {
     ctx.closePath();
     ctx.fill();
 
-    if ((agent.metadata?.stress || 0) > 5) {
+    const stress = typeof agent.metadata.stress === "number" ? agent.metadata.stress : 0;
+    if (stress > 5) {
       ctx.strokeStyle = "#f472b6";
       ctx.lineWidth = 2;
       ctx.beginPath();

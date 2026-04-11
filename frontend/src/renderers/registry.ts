@@ -1,16 +1,17 @@
+import type { AgentType, Renderer } from "../types";
 import collectorRenderer from "./collectorRenderer";
 import marineLifeRenderer from "./marineLifeRenderer";
 import scoutRenderer from "./scoutRenderer";
 import trashRenderer from "./trashRenderer";
 
-const renderers = {
+const renderers: Record<AgentType, Renderer> = {
   scout: scoutRenderer,
   collector: collectorRenderer,
   marine_life: marineLifeRenderer,
   trash: trashRenderer,
 };
 
-const fallbackRenderer = {
+const fallbackRenderer: Renderer = {
   color: "#ffffff",
   size: 4,
   draw(ctx, size) {
@@ -20,6 +21,6 @@ const fallbackRenderer = {
   },
 };
 
-export function getRenderer(agentType) {
-  return renderers[agentType] || fallbackRenderer;
+export function getRenderer(agentType: AgentType): Renderer {
+  return renderers[agentType] ?? fallbackRenderer;
 }

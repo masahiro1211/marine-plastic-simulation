@@ -1,6 +1,12 @@
-import React from "react";
+import type { ScoreState, SimulationPhase, SimulationStats } from "../types";
 
-function Metric({ label, value, tone = "text-slate-200" }) {
+interface MetricProps {
+  label: string;
+  value: number | string;
+  tone?: string;
+}
+
+function Metric({ label, value, tone = "text-slate-200" }: MetricProps) {
   return (
     <div className="flex justify-between gap-3 text-sm">
       <span className="text-slate-400">{label}</span>
@@ -9,7 +15,19 @@ function Metric({ label, value, tone = "text-slate-200" }) {
   );
 }
 
-export default function StatsPanel({ stats, score, tick, phase }) {
+interface StatsPanelProps {
+  stats: SimulationStats;
+  score: ScoreState;
+  tick: number;
+  phase: SimulationPhase;
+}
+
+export default function StatsPanel({
+  stats,
+  score,
+  tick,
+  phase,
+}: StatsPanelProps) {
   return (
     <div className="bg-slate-950/80 text-white p-4 rounded-2xl min-w-[240px] shadow-xl border border-cyan-900/50">
       <h3 className="text-base font-semibold mb-3">Mission Status</h3>

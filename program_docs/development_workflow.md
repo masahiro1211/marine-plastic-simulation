@@ -28,6 +28,7 @@ uvicorn app.main:app --reload
 
 ```bash
 cd frontend
+npm run typecheck
 npm start
 ```
 
@@ -45,6 +46,7 @@ python -m unittest discover -s tests -v
 
 ```bash
 cd frontend
+npm run typecheck
 npm run build
 ```
 
@@ -53,8 +55,9 @@ npm run build
 CI では以下を最低限通す。
 
 1. Backend unit tests
-2. Frontend production build
-3. Docker Compose build
+2. Frontend typecheck
+3. Frontend production build
+4. Docker Compose build
 
 ## コミット方針
 
