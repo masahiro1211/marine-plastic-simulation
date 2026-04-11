@@ -11,17 +11,22 @@
   "scout_count": 2,
   "collector_count": 3,
   "marine_life_count": 10,
-  "trash_count": 20,
-  "scout_speed": 1.8,
-  "collector_speed": 1.4,
-  "trash_drift_speed": 0.2,
+  "initial_trash_count": 18,
+  "scout_speed": 2.2,
+  "collector_speed": 1.8,
+  "marine_life_speed": 1.6,
+  "trash_drift_speed": 0.35,
   "trash_weight": 1.0,
-  "avoid_fish_weight": 1.2,
-  "avoid_robot_weight": 0.8,
+  "avoid_marine_life_weight": 1.15,
+  "avoid_robot_weight": 0.85,
   "random_weight": 0.3,
-  "scout_sensor_radius": 90,
-  "collector_sensor_radius": 35,
-  "max_energy": 100
+  "scout_sensor_radius": 110,
+  "collector_sensor_radius": 42,
+  "collector_pickup_radius": 16,
+  "collision_radius": 18,
+  "max_energy": 100,
+  "trash_spawn_interval": 24,
+  "marine_life_respawn_delay": 90
 }
 ```
 
@@ -31,6 +36,8 @@
 {
   "tick": 42,
   "phase": "running",
+  "config": {},
+  "base": {},
   "agents": [],
   "stats": {},
   "score": {},
@@ -43,7 +50,7 @@
 ```json
 {
   "id": "collector-1",
-  "agent_type": "robot",
+  "agent_type": "collector",
   "role": "collector",
   "x": 100.0,
   "y": 150.0,
@@ -67,7 +74,8 @@
   "collectors": 3,
   "marine_life": 10,
   "trash_remaining": 18,
-  "active_robots": 5
+  "active_robots": 5,
+  "delivered_trash": 4
 }
 ```
 
@@ -76,7 +84,7 @@
 ```json
 {
   "total": 120.0,
-  "trash_collected": 12,
+  "trash_delivered": 12,
   "collisions": 1,
   "marine_life_stress": 8.5,
   "energy_remaining": 210.0
@@ -86,9 +94,10 @@
 ## 6. 最低限の event_type
 
 - `trash_detected`
-- `trash_shared`
-- `trash_collected`
+- `trash_picked`
+- `trash_delivered`
 - `collision_detected`
-- `marine_life_avoided`
+- `marine_life_lost`
+- `marine_life_respawned`
 - `battery_depleted`
 - `battery_recovered`

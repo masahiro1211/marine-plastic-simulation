@@ -1,19 +1,39 @@
 import React from "react";
 
-export default function StatsPanel({ stats, tick }) {
+function Metric({ label, value, tone = "text-slate-200" }) {
   return (
-    <div className="bg-black/60 text-white p-4 rounded-lg min-w-[160px]">
-      <h3 className="text-base font-semibold mb-2">Statistics</h3>
-      <div className="text-sm mb-1">
-        <span className="text-fish">Fish:</span> {stats.fish}
+    <div className="flex justify-between gap-3 text-sm">
+      <span className="text-slate-400">{label}</span>
+      <span className={tone}>{value}</span>
+    </div>
+  );
+}
+
+export default function StatsPanel({ stats, score, tick, phase }) {
+  return (
+    <div className="bg-slate-950/80 text-white p-4 rounded-2xl min-w-[240px] shadow-xl border border-cyan-900/50">
+      <h3 className="text-base font-semibold mb-3">Mission Status</h3>
+
+      <div className="space-y-1 mb-4">
+        <Metric label="Phase" value={phase} tone="text-cyan-300" />
+        <Metric label="Tick" value={tick} />
+        <Metric label="Total Score" value={score.total} tone="text-amber-300" />
       </div>
-      <div className="text-sm mb-1">
-        <span className="text-predator">Predators:</span> {stats.predators}
+
+      <div className="border-t border-slate-800 pt-3 space-y-1 mb-4">
+        <Metric label="Scouts" value={stats.scouts} tone="text-cyan-300" />
+        <Metric label="Collectors" value={stats.collectors} tone="text-emerald-300" />
+        <Metric label="Marine Life" value={stats.marine_life} tone="text-sky-300" />
+        <Metric label="Trash Remaining" value={stats.trash_remaining} tone="text-orange-300" />
+        <Metric label="Delivered Trash" value={stats.delivered_trash} tone="text-lime-300" />
       </div>
-      <div className="text-sm mb-1">
-        <span className="text-plastic">Plastics:</span> {stats.plastics}
+
+      <div className="border-t border-slate-800 pt-3 space-y-1">
+        <Metric label="Active Robots" value={stats.active_robots} />
+        <Metric label="Collisions" value={score.collisions} tone="text-rose-300" />
+        <Metric label="Stress" value={score.marine_life_stress} tone="text-fuchsia-300" />
+        <Metric label="Energy Left" value={score.energy_remaining} tone="text-teal-300" />
       </div>
-      <div className="text-sm">Tick: {tick}</div>
     </div>
   );
 }

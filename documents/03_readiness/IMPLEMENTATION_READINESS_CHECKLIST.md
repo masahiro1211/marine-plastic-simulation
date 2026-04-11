@@ -17,9 +17,9 @@
 
 ### API / Schema
 
-- [ ] Config schema が固定されている
-- [ ] Snapshot schema が固定されている
-- [ ] Agent 共通項目が固定されている
+- [x] Config schema が固定されている
+- [x] Snapshot schema が固定されている
+- [x] Agent 共通項目が固定されている
 - [x] Stats と Score の責務分離が定義されている
 - [x] event の最小セットが決まっている
 
@@ -48,9 +48,9 @@
 
 以下がすべて満たされれば、Phase 1 の実装に入ってよい。
 
-- [ ] Config schema 確定
-- [ ] Snapshot schema 確定
-- [ ] Agent 共通項目確定
+- [x] Config schema 確定
+- [x] Snapshot schema 確定
+- [x] Agent 共通項目確定
 - [x] score 項目確定
 - [x] role 一覧確定
 - [x] 初回マイルストーンの受け入れ条件確定
