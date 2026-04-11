@@ -1,4 +1,6 @@
-const scoutRenderer = {
+import type { Renderer } from "../types";
+
+const scoutRenderer: Renderer = {
   color: "#38bdf8",
   size: 10,
   draw(ctx, size) {

@@ -1,4 +1,3 @@
-import React from "react";
 import Canvas from "./components/Canvas";
 import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
@@ -20,12 +19,12 @@ export default function App() {
     resetViaApi,
   } = useSimulation();
 
-  const handleReset = (nextConfig) => {
+  const handleReset = (nextConfig: typeof config) => {
     if (connected) {
       reset(nextConfig);
       return;
     }
-    resetViaApi(nextConfig);
+    void resetViaApi(nextConfig);
   };
 
   return (

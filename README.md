@@ -8,7 +8,7 @@ Scout がごみを見つけ、Collector が回収して基地へ搬入し、Mari
 | Layer | Tech |
 |---|---|
 | Backend | Python 3.12 / FastAPI / WebSocket |
-| Frontend | React 19 / Tailwind CSS / Canvas API |
+| Frontend | React 19 / TypeScript / Tailwind CSS / Canvas API |
 | Infra | Docker / Docker Compose |
 | Verification | unittest / GitHub Actions |
 
@@ -48,6 +48,7 @@ uvicorn app.main:app --reload
 ```bash
 cd frontend
 npm install
+npm run typecheck
 npm start
 ```
 
@@ -65,6 +66,7 @@ python -m unittest discover -s tests -v
 
 ```bash
 cd frontend
+npm run typecheck
 npm run build
 ```
 

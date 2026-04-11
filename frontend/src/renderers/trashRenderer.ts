@@ -1,4 +1,6 @@
-const trashRenderer = {
+import type { Renderer } from "../types";
+
+const trashRenderer: Renderer = {
   color: "#fb923c",
   size: 8,
   draw(ctx, size) {
