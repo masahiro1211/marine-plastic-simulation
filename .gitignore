@@ -4,3 +4,9 @@ __pycache__/
 node_modules/
 build/
 .venv/
+
+#ogawa-memo : ignore .codex 
+.codex
+
+#ogawa-memo : docs is folder for codex to storage their implemantation plan, program documents and walkthrough 
+docs/
