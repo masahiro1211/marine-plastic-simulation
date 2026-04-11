@@ -22,32 +22,38 @@ async def simulation_ws(websocket: WebSocket):
     """
     engine = get_engine()
     await websocket.accept()
-    engine.running = True
+    engine.start()
     try:
-        while engine.running:
+        while True:
             try:
                 data = await asyncio.wait_for(
                     websocket.receive_json(), timeout=0.01
                 )
                 action = data.get("action")
                 if action == "stop":
-                    engine.running = False
-                    break
+                    engine.stop()
                 elif action == "reset":
                     config_data = data.get("config")
                     if config_data:
                         engine.reset(SimulationConfig(**config_data))
                     else:
                         engine.reset()
+                    engine.start()
                 elif action == "update_config":
                     config_data = data.get("config", {})
                     engine.reset(SimulationConfig(**config_data))
+                elif action == "start":
+                    engine.start()
             except asyncio.TimeoutError:
                 pass
 
-            engine.step()
             snapshot = engine.get_snapshot()
+            if engine.running:
+                engine.step()
+                snapshot = engine.get_snapshot()
             await websocket.send_json(snapshot)
+            if engine.phase == "completed" and not engine.running:
+                break
             await asyncio.sleep(engine.config.tick_interval_ms / 1000)
     except WebSocketDisconnect:
-        engine.running = False
+        engine.stop()

@@ -1,11 +1,13 @@
-import fishRenderer from "./fishRenderer";
-import plasticRenderer from "./plasticRenderer";
-import predatorRenderer from "./predatorRenderer";
+import collectorRenderer from "./collectorRenderer";
+import marineLifeRenderer from "./marineLifeRenderer";
+import scoutRenderer from "./scoutRenderer";
+import trashRenderer from "./trashRenderer";
 
 const renderers = {
-  fish: fishRenderer,
-  predator: predatorRenderer,
-  plastic: plasticRenderer,
+  scout: scoutRenderer,
+  collector: collectorRenderer,
+  marine_life: marineLifeRenderer,
+  trash: trashRenderer,
 };
 
 const fallbackRenderer = {
@@ -20,8 +22,4 @@ const fallbackRenderer = {
 
 export function getRenderer(agentType) {
   return renderers[agentType] || fallbackRenderer;
-}
-
-export function registerRenderer(agentType, renderer) {
-  renderers[agentType] = renderer;
 }
