@@ -10,10 +10,10 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 
 @router.get("")
 def get_config():
-    """現在のシミュレーション設定を取得する。
+    """Return the current simulation configuration.
 
     Returns:
-        現在のSimulationConfig設定オブジェクト。
+        SimulationConfig: Active runtime configuration.
     """
     engine = get_engine()
     return engine.config
@@ -21,13 +21,13 @@ def get_config():
 
 @router.put("")
 def update_config(config: SimulationConfig):
-    """シミュレーション設定を更新し、シミュレーションをリセットする。
+    """Replace the simulation configuration and reset the runtime.
 
     Args:
-        config: 新しいシミュレーション設定。
+        config: New simulation configuration.
 
     Returns:
-        ステータスと更新後の設定を含む辞書。
+        dict: Status payload containing the updated configuration.
     """
     engine = get_engine()
     engine.reset(config)

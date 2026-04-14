@@ -9,10 +9,10 @@ router = APIRouter(prefix="/api/stats", tags=["stats"])
 
 @router.get("/history")
 def history():
-    """統計情報の履歴を取得する。
+    """Return recorded simulation history.
 
     Returns:
-        ティックごとの統計エントリ辞書のリスト。
+        list[dict]: Per-tick history entries.
     """
     engine = get_engine()
     return engine.get_stats_history()

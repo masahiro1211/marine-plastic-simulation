@@ -9,10 +9,10 @@ router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
 @router.post("/start")
 def start():
-    """シミュレーションを開始する。
+    """Start the simulation runtime.
 
     Returns:
-        ステータスと実行状態を含む辞書。
+        dict: Status payload containing running state and phase.
     """
     engine = get_engine()
     engine.start()
@@ -21,10 +21,10 @@ def start():
 
 @router.post("/stop")
 def stop():
-    """シミュレーションを停止する。
+    """Stop the simulation runtime.
 
     Returns:
-        ステータスと実行状態を含む辞書。
+        dict: Status payload containing running state and phase.
     """
     engine = get_engine()
     engine.stop()
@@ -33,10 +33,10 @@ def stop():
 
 @router.post("/reset")
 def reset():
-    """シミュレーションをリセットする。
+    """Reset the simulation runtime to its initial state.
 
     Returns:
-        ステータスとティック数を含む辞書。
+        dict: Status payload containing the reset tick and phase.
     """
     engine = get_engine()
     engine.reset()
@@ -45,10 +45,10 @@ def reset():
 
 @router.get("/snapshot")
 def snapshot():
-    """シミュレーションの現在のスナップショットを取得する。
+    """Return the current serialized simulation snapshot.
 
     Returns:
-        ティック数、エージェント一覧、統計情報を含む辞書。
+        dict: Snapshot payload with agents, stats, score, and events.
     """
     engine = get_engine()
     return engine.get_snapshot()

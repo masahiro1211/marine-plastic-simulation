@@ -4,22 +4,42 @@ from app.simulation.agents.base import BaseAgent
 
 
 class Scout(BaseAgent):
+    """Scout robot that discovers trash and shares targets."""
     AGENT_TYPE = "scout"
     ROLE = "scout"
     DEFAULT_RADIUS = 9.0
 
     def __init__(self, x: float, y: float, speed: float, sensor_radius: float, max_energy: float):
+        """Initialize a scout robot.
+
+        Args:
+            x: Initial horizontal position.
+            y: Initial vertical position.
+            speed: Movement speed.
+            sensor_radius: Detection radius for nearby trash.
+            max_energy: Initial and maximum robot energy.
+        """
         super().__init__(x, y)
         self.speed = speed
         self.sensor_radius = sensor_radius
         self.energy = max_energy
 
     def base_metadata(self) -> dict:
+        """Return scout-specific metadata for serialization.
+
+        Returns:
+            Metadata including the scout sensor radius.
+        """
         data = super().base_metadata()
         data.update({"sensor_radius": self.sensor_radius})
         return data
 
     def update(self, world) -> None:
+        """Advance the scout by one tick.
+
+        Args:
+            world: Active simulation runtime.
+        """
         if not self.alive:
             return
 

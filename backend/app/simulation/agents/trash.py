@@ -6,16 +6,29 @@ from app.simulation.agents.base import BaseAgent
 
 
 class Trash(BaseAgent):
+    """Drifting trash actor that can be detected and collected."""
     AGENT_TYPE = "trash"
     ROLE = "trash"
     DEFAULT_RADIUS = 7.0
 
     def __init__(self, x: float, y: float, drift_speed: float):
+        """Initialize a trash actor.
+
+        Args:
+            x: Initial horizontal position.
+            y: Initial vertical position.
+            drift_speed: Maximum drift speed.
+        """
         super().__init__(x, y)
         self.drift_speed = drift_speed
         self.energy = 0.0
 
     def update(self, world) -> None:
+        """Advance the trash actor by one tick.
+
+        Args:
+            world: Active simulation runtime.
+        """
         if not self.alive:
             return
         self.status = "drifting"

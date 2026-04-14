@@ -12,13 +12,13 @@ router = APIRouter(tags=["websocket"])
 
 @router.websocket("/ws/simulation")
 async def simulation_ws(websocket: WebSocket):
-    """WebSocket接続でシミュレーションをリアルタイムに実行・配信する。
+    """Stream live simulation snapshots over a WebSocket connection.
 
-    クライアントからのアクション（stop, reset, update_config）を受け付けつつ、
-    ティックごとにスナップショットをクライアントへ送信する。
+    The endpoint accepts control actions such as ``start``, ``stop``,
+    ``reset``, and ``update_config`` while continuously sending snapshots.
 
     Args:
-        websocket: クライアントとのWebSocket接続。
+        websocket: Active client connection.
     """
     engine = get_engine()
     await websocket.accept()
