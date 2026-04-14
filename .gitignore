@@ -1,6 +1,37 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Codex local metadata
+.codex
+
+# Python
 __pycache__/
-*.pyc
-.env
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+
+# Node / frontend
 node_modules/
 build/
-.venv/
+dist/
+coverage/
+!frontend/package.json
+!frontend/package-lock.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Generated docs artifacts
+docs/

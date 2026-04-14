@@ -3,120 +3,94 @@ from __future__ import annotations
 import math
 import random
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.schemas import AgentState
+    from app.simulation.engine import SimulationEngine
 
 
 class BaseAgent(ABC):
-    """シミュレーション上の全エージェントの抽象基底クラス。
+    """Shared state and helpers for all simulation actors."""
 
-    全てのエージェントはこのクラスを継承し、`update()` メソッドを実装する必要がある。
-    """
+    AGENT_TYPE = "base"
+    ROLE = "base"
+    DEFAULT_RADIUS = 8.0
+    _id_counter = 0
 
-    AGENT_TYPE: str = "base"
-
-    _id_counter: int = 0
-
-    def __init__(self, x: float, y: float):
-        """エージェントを初期化する。
-
-        Args:
-            x: エージェントの初期X座標。
-            y: エージェントの初期Y座標。
-        """
+    def __init__(self, x: float, y: float, radius: float | None = None):
         BaseAgent._id_counter += 1
-        self.id: int = BaseAgent._id_counter
-        self.x: float = x
-        self.y: float = y
-        self.angle: float = random.uniform(0, 2 * math.pi)
-        self.energy: float = 100.0
-        self.alive: bool = True
+        self.id = f"{self.ROLE}-{BaseAgent._id_counter}"
+        self.x = x
+        self.y = y
+        self.vx = random.uniform(-0.3, 0.3)
+        self.vy = random.uniform(-0.3, 0.3)
+        self.radius = radius or self.DEFAULT_RADIUS
+        self.energy = 0.0
+        self.alive = True
+        self.status = "idle"
+        self.target_id: str | None = None
 
     def distance_to(self, other: BaseAgent) -> float:
-        """他のエージェントまでのユークリッド距離を計算する。
-
-        Args:
-            other: 距離を計算する対象のエージェント。
-
-        Returns:
-            自身と対象エージェント間の距離。
-        """
         return math.hypot(self.x - other.x, self.y - other.y)
 
-    def angle_to(self, other: BaseAgent) -> float:
-        """他のエージェントへの角度（ラジアン）を計算する。
+    def distance_to_point(self, x: float, y: float) -> float:
+        return math.hypot(self.x - x, self.y - y)
 
-        Args:
-            other: 角度を計算する対象のエージェント。
+    def set_velocity_towards(self, tx: float, ty: float, speed: float) -> None:
+        dx = tx - self.x
+        dy = ty - self.y
+        norm = math.hypot(dx, dy) or 1.0
+        self.vx = dx / norm * speed
+        self.vy = dy / norm * speed
 
-        Returns:
-            自身から対象エージェントへの角度（ラジアン）。
-        """
-        return math.atan2(other.y - self.y, other.x - self.x)
+    def set_velocity_away_from(self, tx: float, ty: float, speed: float) -> None:
+        dx = self.x - tx
+        dy = self.y - ty
+        norm = math.hypot(dx, dy) or 1.0
+        self.vx = dx / norm * speed
+        self.vy = dy / norm * speed
 
-    def wrap_position(self, width: float, height: float) -> None:
-        """座標がフィールド外に出た場合、反対側にラップアラウンドさせる。
+    def add_random_motion(self, magnitude: float) -> None:
+        self.vx += random.uniform(-magnitude, magnitude)
+        self.vy += random.uniform(-magnitude, magnitude)
 
-        Args:
-            width: フィールドの幅。
-            height: フィールドの高さ。
-        """
-        self.x = self.x % width
-        self.y = self.y % height
+    def clamp_speed(self, max_speed: float) -> None:
+        speed = math.hypot(self.vx, self.vy)
+        if speed > max_speed and speed > 0:
+            scale = max_speed / speed
+            self.vx *= scale
+            self.vy *= scale
 
-    def neighbours_by_type(
-        self,
-        agents: list[BaseAgent],
-        agent_type: str,
-        radius: float,
-    ) -> list[BaseAgent]:
-        """指定した種類かつ半径内にいる近隣エージェントのリストを返す。
+    def move(self, width: float, height: float) -> None:
+        self.x = min(max(self.x + self.vx, 0), width)
+        self.y = min(max(self.y + self.vy, 0), height)
 
-        Args:
-            agents: 全エージェントのリスト。
-            agent_type: フィルタ対象のエージェント種別文字列。
-            radius: 検索半径。
+    def base_metadata(self) -> dict:
+        return {"radius": self.radius}
 
-        Returns:
-            条件に一致する近隣エージェントのリスト。
-        """
-        return [
-            a
-            for a in agents
-            if a is not self
-            and a.alive
-            and a.AGENT_TYPE == agent_type
-            and self.distance_to(a) < radius
-        ]
+    def to_state(self) -> AgentState:
+        from app.models.schemas import AgentState
 
-    def to_dict(self) -> dict:
-        """エージェントの状態を辞書形式で返す。
-
-        Returns:
-            エージェントの属性を含む辞書。
-        """
-        return {
-            "id": self.id,
-            "agent_type": self.AGENT_TYPE,
-            "x": self.x,
-            "y": self.y,
-            "angle": self.angle,
-            "energy": self.energy,
-            "alive": self.alive,
-        }
+        return AgentState(
+            id=self.id,
+            agent_type=self.AGENT_TYPE,
+            role=self.ROLE,
+            x=self.x,
+            y=self.y,
+            vx=self.vx,
+            vy=self.vy,
+            alive=self.alive,
+            status=self.status,
+            energy=self.energy,
+            target_id=self.target_id,
+            metadata=self.base_metadata(),
+        )
 
     @abstractmethod
-    def update(self, agents: list[BaseAgent], width: float, height: float) -> None:
-        """エージェントの状態を1ティック分更新する。
-
-        サブクラスで必ず実装すること。
-
-        Args:
-            agents: シミュレーション内の全エージェントのリスト。
-            width: フィールドの幅。
-            height: フィールドの高さ。
-        """
+    def update(self, world: SimulationEngine) -> None:
         ...
 
     @classmethod
     def reset_id_counter(cls) -> None:
-        """エージェントIDカウンタを0にリセットする。"""
         cls._id_counter = 0

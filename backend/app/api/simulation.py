@@ -15,8 +15,8 @@ def start():
         ステータスと実行状態を含む辞書。
     """
     engine = get_engine()
-    engine.running = True
-    return {"status": "ok", "running": True}
+    engine.start()
+    return {"status": "ok", "running": engine.running, "phase": engine.phase}
 
 
 @router.post("/stop")
@@ -27,8 +27,8 @@ def stop():
         ステータスと実行状態を含む辞書。
     """
     engine = get_engine()
-    engine.running = False
-    return {"status": "ok", "running": False}
+    engine.stop()
+    return {"status": "ok", "running": engine.running, "phase": engine.phase}
 
 
 @router.post("/reset")
@@ -40,7 +40,7 @@ def reset():
     """
     engine = get_engine()
     engine.reset()
-    return {"status": "ok", "tick": 0}
+    return {"status": "ok", "tick": 0, "phase": engine.phase}
 
 
 @router.get("/snapshot")
