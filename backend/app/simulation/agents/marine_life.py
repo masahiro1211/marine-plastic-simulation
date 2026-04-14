@@ -4,22 +4,40 @@ from app.simulation.agents.base import BaseAgent
 
 
 class MarineLife(BaseAgent):
+    """Marine life actor that evades robots and accumulates stress."""
     AGENT_TYPE = "marine_life"
     ROLE = "marine_life"
     DEFAULT_RADIUS = 10.0
 
     def __init__(self, x: float, y: float, speed: float):
+        """Initialize a marine life actor.
+
+        Args:
+            x: Initial horizontal position.
+            y: Initial vertical position.
+            speed: Movement speed.
+        """
         super().__init__(x, y)
         self.speed = speed
         self.energy = 1.0
         self.stress = 0.0
 
     def base_metadata(self) -> dict:
+        """Return marine-life-specific metadata for serialization.
+
+        Returns:
+            Metadata including the current stress value.
+        """
         data = super().base_metadata()
         data.update({"stress": round(self.stress, 2)})
         return data
 
     def update(self, world) -> None:
+        """Advance the marine life actor by one tick.
+
+        Args:
+            world: Active simulation runtime.
+        """
         if not self.alive:
             return
 

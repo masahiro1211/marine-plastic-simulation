@@ -9,9 +9,9 @@ _engine = SimulationEngine()
 
 
 def get_engine() -> SimulationEngine:
-    """シミュレーションエンジンのシングルトンインスタンスを取得する。
+    """Return the shared simulation engine instance.
 
     Returns:
-        アプリケーション共有のSimulationEngineインスタンス。
+        SimulationEngine: Application-wide singleton runtime.
     """
     return _engine

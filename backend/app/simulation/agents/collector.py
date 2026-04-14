@@ -4,6 +4,7 @@ from app.simulation.agents.base import BaseAgent
 
 
 class Collector(BaseAgent):
+    """Collector robot that picks up trash and returns it to base."""
     AGENT_TYPE = "collector"
     ROLE = "collector"
     DEFAULT_RADIUS = 11.0
@@ -17,6 +18,16 @@ class Collector(BaseAgent):
         pickup_radius: float,
         max_energy: float,
     ):
+        """Initialize a collector robot.
+
+        Args:
+            x: Initial horizontal position.
+            y: Initial vertical position.
+            speed: Movement speed.
+            sensor_radius: Detection radius for trash.
+            pickup_radius: Distance required to collect trash.
+            max_energy: Initial and maximum robot energy.
+        """
         super().__init__(x, y)
         self.speed = speed
         self.sensor_radius = sensor_radius
@@ -25,6 +36,11 @@ class Collector(BaseAgent):
         self.carrying_trash_id: str | None = None
 
     def base_metadata(self) -> dict:
+        """Return collector-specific metadata for serialization.
+
+        Returns:
+            Metadata including sensor, pickup, and carrying state.
+        """
         data = super().base_metadata()
         data.update(
             {
@@ -36,6 +52,11 @@ class Collector(BaseAgent):
         return data
 
     def update(self, world) -> None:
+        """Advance the collector by one tick.
+
+        Args:
+            world: Active simulation runtime.
+        """
         if not self.alive:
             return
 
