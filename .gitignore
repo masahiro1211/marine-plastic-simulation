@@ -32,4 +32,4 @@ coverage/
 !.env.sample
 
 # Generated docs artifacts
-docs/slides/*.pdf
+docs/
