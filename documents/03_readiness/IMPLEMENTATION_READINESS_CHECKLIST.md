@@ -34,15 +34,16 @@
 
 ### 判定
 
-- Milestone 1 の実装着手は可能
-- Milestone 2 の実装着手も可能
+- 現行システムは保守・拡張フェーズに入ってよい
+- 小規模な機能追加は着手可能
+- 契約変更を含む改修も、CI と文書更新を前提に着手可能
 
 ### 理由
 
 - 仕様の大枠は固まった
-- ドキュメント上の score / role / event / 終了条件は十分に定義されている
-- engine ロジックに直結する論点も `OPEN_QUESTIONS.md` で `DECISION` まで昇格した
-- 未完了なのは仕様策定ではなく、schema をコード契約へ落とす実装作業である
+- score / role / event / 終了条件はコードと文書の双方で定着した
+- engine ロジックに直結する主要論点は `OPEN_QUESTIONS.md` で決定済み
+- 未完了なのは再設計ではなく、保守性向上と追加機能の実装である
 
 ## 4. 最低限の Go 条件
 
@@ -54,6 +55,9 @@
 - [x] score 項目確定
 - [x] role 一覧確定
 - [x] 初回マイルストーンの受け入れ条件確定
+- [x] frontend build が通る
+- [x] backend unit test が通る
+- [x] Docker build が通る
 
 ## 5. Stop 条件
 
@@ -64,3 +68,4 @@
 - frontend だけ先に書き換えようとしている
 - ロボット共有情報の構造が未定義
 - 仕様変更が issue ではなく口頭だけで増えている
+- frontend dependency を変えたのに lockfile と CI を確認していない

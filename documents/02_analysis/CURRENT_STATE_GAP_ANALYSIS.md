@@ -9,69 +9,63 @@
 
 ### Backend
 
-- `SimulationConfig` は `num_fish`, `num_predators`, `num_plastics` 前提
-- `AgentState` は `angle`, `energy`, `alive` のみで role を持たない
-- `StatsEntry` は `fish`, `predators`, `plastics` を数える
-- `SimulationSnapshot` は `tick`, `agents`, `stats` のみ
-- engine はスコア、イベント、共有メッセージ、phase を持たない
+- `SimulationConfig` は `scout / collector / marine_life / trash` と移動・エネルギー・stress 系の設定を持つ
+- `SimulationSnapshot` は `phase`, `base`, `stats`, `score`, `events` を含む
+- engine は target 共有、trash 回収、battery、stress、respawn、score を持つ
+- backend unit test は新契約に対して実装済み
+- 主要 Python モジュールの docstring は Google 形式へ整備済み
 
 ### Frontend
 
-- ControlPanel は fish / predator / plastic 向けの設定のみ表示
-- StatsPanel は fish / predator / plastic の数だけを表示
-- 描画は既存エージェント種別前提
+- ControlPanel は主要 5 項目の設定変更に対応
+- StatsPanel は phase、score、robot 数、stress、energy を表示
+- renderer は `scout / collector / marine_life / trash` を描画可能
+- hook は REST bootstrap と WebSocket streaming を分離して扱う
+- frontend lockfile は CI の `npm ci` に合わせて更新済み
 
 ## 3. 目標仕様との差分
 
+現時点で、当初の大きな仕様差分はほぼ解消されている。  
+残る差分は「未実装」よりも「今後の拡張余地」の整理である。
+
 ### 用語差分
 
-- `fish` -> `marine_life`
-- `predator` -> `collector` ではない
-- `plastic` -> `trash`
+- 旧用語ベースの補助コード (`fish.py`, `plastic.py`, `predator.py`) は残るが、主経路では使用していない
 
 ### 機能差分
 
-- scout の探索と共有がない
-- collector の回収責務がない
-- marine_life のストレスモデルが弱い
-- score がない
-- event がない
-- robot role がない
-- battery の停止 / 回復仕様が弱い
+- 高度な可視化や履歴チャート UI は未実装
+- frontend で常時編集できるパラメータは 5 項目に絞っている
+- docstring は backend を中心に整備済みで、frontend 側は JSDoc を段階的に追記中
 
 ### 契約差分
 
-- snapshot に `score`, `events`, `phase` がない
-- agent schema に `role`, `vx`, `vy`, `status`, `target_id`, `metadata` がない
-- config にロボット役割と重み設定がない
+- backend / frontend の主要契約差分はなし
+- 今後 schema を変える場合は CI と `program_docs/` の同時更新が必要
 
 ## 4. 実装リスク
 
-- `predator` をそのまま `collector` に名前変更すると責務が壊れる
-- frontend を先に変更すると backend 契約未確定で手戻りが増える
-- score を後付けにすると engine の更新順序が複雑化する
-- 共通 schema を先に作らないと、後続メンバーが別々の解釈で改修する
+- schema を変更して frontend 型を追随しないと UI が静かに壊れる
+- lockfile を更新せずに package 追加や peer 解決が変わると CI が落ちる
+- `documents/` を現在状態へ更新しないと、古い計画書が実装の妨げになる
 
 ## 5. 推奨対応
 
 ### 先行対応
 
-- schema 拡張
-- config 名称変更
-- stats / score 分離
-- agent role 導入
+- 変更前に `SimulationConfig` / `SimulationSnapshot` の影響範囲を確認する
+- frontend 依存を変えた場合は `npm ci` と `npm run build` をセットで回す
+- backend ロジック変更時は unit test と docstring を合わせて更新する
 
 ### 中盤対応
 
-- scout / collector のロジック分離
-- message / target 共有導入
-- marine_life stress 導入
+- 新しい UI 表現や履歴表示の追加
+- ドメインイベントの可視化強化
 
 ### 後半対応
 
-- UI ラベル変更
-- renderer 差し替え
-- 演出強化
+- 追加シナリオやパラメータ公開範囲の拡張
+- 設計資料の整理と長期運用向けの文書統合
 
 ## 6. 今は実装しない方がよいこと
 

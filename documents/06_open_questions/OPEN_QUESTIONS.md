@@ -51,16 +51,29 @@
 
 ## 2. 残っている未解決事項
 
-- 現時点で Milestone 1 と Milestone 2 を止める未解決事項はなし
+- 現時点で実装と CI を止める未解決事項はなし
 - 新しい論点が出た場合のみ、この節に `OPEN:` として追加する
 
-## 3. 実装に使える暫定方針
+## 3. 追加の決定事項
 
-- Milestone 1 は着手可能
-- Milestone 2 も着手可能
-- 先行順は `schema -> engine -> api -> frontend` とする
+### DECISION: frontend dependency 管理
 
-## 4. 運用ルール
+- frontend 依存変更時は `package-lock.json` を必ず同時更新する
+- `npm ci` と `npm run build` をローカルで確認してから push する
+- peer dependency の自動解決に依存しすぎず、必要なものは明示 dependency として持つ
+
+### DECISION: コメント形式
+
+- backend の Python コードは Google docstring 形式を基本とする
+- frontend の TypeScript / TSX は JSDoc 形式で主要関数を説明する
+- 実装変更時はコードコメントと `documents/` の更新をセットで行う
+
+## 4. 実装に使える暫定方針
+
+- 既存契約を尊重しながら `schema -> engine/api -> frontend -> docs` の順で更新する
+- dependency 変更時は `ci -> build -> docs` の確認を追加する
+
+## 5. 運用ルール
 
 - 口頭で決まった事項はこのファイルに `DECISION:` または `OPEN:` として追記する
 - 曖昧な日本語だけで残さず、実装可能な粒度まで落とす

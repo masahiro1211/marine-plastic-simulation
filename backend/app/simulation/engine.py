@@ -21,6 +21,16 @@ MAX_HISTORY = 500
 
 @dataclass
 class SharedTarget:
+    """Shared trash location discovered by a scout.
+
+    Attributes:
+        trash_id: Identifier of the detected trash.
+        x: Observed horizontal position.
+        y: Observed vertical position.
+        reporter_id: Scout identifier that reported the trash.
+        tick: Tick when the report was created.
+    """
+
     trash_id: str
     x: float
     y: float
@@ -29,9 +39,18 @@ class SharedTarget:
 
 
 class SimulationEngine:
-    """Main simulation runtime for the robot cleanup game."""
+    """Main simulation runtime for the robot cleanup game.
+
+    This runtime owns world state, agent updates, event emission, score
+    calculation, and snapshot generation for API clients.
+    """
 
     def __init__(self, config: SimulationConfig | None = None):
+        """Initialize the simulation runtime.
+
+        Args:
+            config: Optional runtime configuration override.
+        """
         self.config = config or SimulationConfig()
         self.tick = 0
         self.running = False
@@ -51,6 +70,7 @@ class SimulationEngine:
         self._init_agents()
 
     def _init_agents(self) -> None:
+        """Rebuild all runtime actors from the current configuration."""
         BaseAgent.reset_id_counter()
         self.agents.clear()
         self.shared_targets.clear()
@@ -90,6 +110,7 @@ class SimulationEngine:
             self._spawn_trash()
 
     def _spawn_trash(self) -> None:
+        """Spawn one trash actor at a random valid position."""
         self.agents.append(
             Trash(
                 random.uniform(30, self.config.width - 30),
@@ -99,6 +120,7 @@ class SimulationEngine:
         )
 
     def _spawn_marine_life(self) -> None:
+        """Spawn one marine life actor at a random valid position."""
         self.agents.append(
             MarineLife(
                 random.uniform(30, self.config.width - 30),
@@ -108,15 +130,22 @@ class SimulationEngine:
         )
 
     def start(self) -> None:
+        """Start or resume the simulation."""
         self.running = True
         self.phase = "running"
 
     def stop(self) -> None:
+        """Stop the simulation while preserving current state."""
         self.running = False
         if self.phase == "running":
             self.phase = "stopped"
 
     def reset(self, config: SimulationConfig | None = None) -> None:
+        """Reset runtime state and optionally replace the configuration.
+
+        Args:
+            config: Optional new runtime configuration.
+        """
         if config:
             self.config = config
         self.tick = 0
@@ -126,6 +155,7 @@ class SimulationEngine:
         self._init_agents()
 
     def step(self) -> None:
+        """Advance the full simulation by one tick."""
         if self.phase == "completed":
             self.running = False
             return
@@ -158,21 +188,35 @@ class SimulationEngine:
 
     @property
     def scouts(self) -> list[Scout]:
+        """Return all active scout robots."""
         return [agent for agent in self.agents if isinstance(agent, Scout) and agent.alive]
 
     @property
     def collectors(self) -> list[Collector]:
+        """Return all active collector robots."""
         return [agent for agent in self.agents if isinstance(agent, Collector) and agent.alive]
 
     @property
     def marine_life(self) -> list[MarineLife]:
+        """Return all active marine life actors."""
         return [agent for agent in self.agents if isinstance(agent, MarineLife) and agent.alive]
 
     @property
     def trash_items(self) -> list[Trash]:
+        """Return all active trash actors."""
         return [agent for agent in self.agents if isinstance(agent, Trash) and agent.alive]
 
     def find_trash_near(self, x: float, y: float, radius: float) -> list[Trash]:
+        """Find active trash within a radius of a point.
+
+        Args:
+            x: Query horizontal position.
+            y: Query vertical position.
+            radius: Search radius.
+
+        Returns:
+            Matching trash actors.
+        """
         return [
             trash
             for trash in self.trash_items
@@ -180,10 +224,26 @@ class SimulationEngine:
         ]
 
     def find_robots_near(self, x: float, y: float, radius: float) -> list[BaseAgent]:
+        """Find active robots within a radius of a point.
+
+        Args:
+            x: Query horizontal position.
+            y: Query vertical position.
+            radius: Search radius.
+
+        Returns:
+            Matching scout and collector robots.
+        """
         robots = self.scouts + self.collectors
         return [robot for robot in robots if robot.distance_to_point(x, y) <= radius]
 
     def share_target(self, trash: Trash, reporter: Scout) -> None:
+        """Publish a trash detection event for collectors.
+
+        Args:
+            trash: Detected trash actor.
+            reporter: Scout that reported the target.
+        """
         existing = self.shared_targets.get(trash.id)
         if existing is not None and self.tick - existing.tick <= 1:
             return
@@ -205,6 +265,14 @@ class SimulationEngine:
         )
 
     def find_collector_target(self, collector: Collector) -> Trash | None:
+        """Select the best trash target for a collector.
+
+        Args:
+            collector: Collector requesting a target.
+
+        Returns:
+            Closest local or shared trash target, if one exists.
+        """
         local_trash = self.find_trash_near(collector.x, collector.y, collector.sensor_radius)
         if local_trash:
             return min(local_trash, key=collector.distance_to)
@@ -219,6 +287,12 @@ class SimulationEngine:
         return None
 
     def pick_trash(self, collector: Collector, trash: Trash) -> None:
+        """Mark one trash item as collected by a collector.
+
+        Args:
+            collector: Collector performing the pickup.
+            trash: Trash actor being collected.
+        """
         if collector.carrying_trash_id or not trash.alive:
             return
         trash.alive = False
@@ -235,6 +309,14 @@ class SimulationEngine:
         )
 
     def should_return_to_base(self, robot: BaseAgent) -> bool:
+        """Return whether a robot should head back to base.
+
+        Args:
+            robot: Robot to evaluate.
+
+        Returns:
+            True when the robot is carrying trash or low on energy.
+        """
         return bool(
             getattr(robot, "carrying_trash_id", None)
             or robot.energy <= self.config.low_energy_threshold
@@ -242,6 +324,11 @@ class SimulationEngine:
         )
 
     def apply_robot_avoidance(self, robot: BaseAgent) -> None:
+        """Adjust velocity to reduce robot-to-robot crowding.
+
+        Args:
+            robot: Robot receiving avoidance steering.
+        """
         nearby_robots = [
             other
             for other in self.scouts + self.collectors
@@ -256,6 +343,11 @@ class SimulationEngine:
         robot.clamp_speed(getattr(robot, "speed", 1.0))
 
     def apply_marine_life_avoidance(self, robot: BaseAgent) -> None:
+        """Adjust velocity to reduce interaction with marine life.
+
+        Args:
+            robot: Robot receiving avoidance steering.
+        """
         nearby_life = [
             life
             for life in self.marine_life
@@ -270,6 +362,11 @@ class SimulationEngine:
         robot.clamp_speed(getattr(robot, "speed", 1.0))
 
     def drain_energy(self, robot: BaseAgent) -> None:
+        """Consume robot energy for one tick and emit depletion events.
+
+        Args:
+            robot: Robot whose energy should be drained.
+        """
         if robot.energy > 0:
             robot.energy = max(0.0, robot.energy - self.config.energy_drain_per_tick)
             if robot.energy == 0:
@@ -282,6 +379,11 @@ class SimulationEngine:
                 )
 
     def mark_marine_life_lost(self, agent: MarineLife) -> None:
+        """Deactivate stressed marine life and schedule respawn.
+
+        Args:
+            agent: Marine life actor to mark as lost.
+        """
         if not agent.alive:
             return
         agent.alive = False
@@ -297,6 +399,7 @@ class SimulationEngine:
         )
 
     def _respawn_marine_life_if_due(self) -> None:
+        """Respawn marine life actors whose delay has elapsed."""
         remaining_due = []
         for due_tick in self.pending_marine_life_respawns:
             if due_tick <= self.tick:
@@ -312,6 +415,7 @@ class SimulationEngine:
         self.pending_marine_life_respawns = remaining_due
 
     def _spawn_runtime_trash(self) -> None:
+        """Spawn periodic runtime trash when configuration allows it."""
         if self.config.trash_spawn_interval <= 0:
             return
         if self.tick % self.config.trash_spawn_interval != 0:
@@ -321,6 +425,7 @@ class SimulationEngine:
         self._spawn_trash()
 
     def _resolve_base_interactions(self) -> None:
+        """Apply charging and trash delivery for robots inside base range."""
         for robot in self.scouts + self.collectors:
             if robot.distance_to_point(self.base.x, self.base.y) > self.base.radius:
                 continue
@@ -350,6 +455,7 @@ class SimulationEngine:
                 )
 
     def _resolve_collisions(self) -> None:
+        """Detect robot collisions and emit collision events."""
         robots = self.scouts + self.collectors
         for index, robot in enumerate(robots):
             for other in robots[index + 1 :]:
@@ -365,6 +471,7 @@ class SimulationEngine:
                     )
 
     def _cleanup_shared_targets(self) -> None:
+        """Drop shared targets that no longer correspond to active trash."""
         active_trash_ids = {trash.id for trash in self.trash_items}
         self.shared_targets = {
             target_id: target
@@ -373,6 +480,11 @@ class SimulationEngine:
         }
 
     def _current_stats(self) -> SimulationStats:
+        """Build aggregated counters for the current tick.
+
+        Returns:
+            Current simulation statistics.
+        """
         return SimulationStats(
             scouts=len(self.scouts),
             collectors=len(self.collectors),
@@ -383,6 +495,11 @@ class SimulationEngine:
         )
 
     def _current_score(self) -> ScoreState:
+        """Compute the current score breakdown.
+
+        Returns:
+            Current score state.
+        """
         energy_remaining = round(sum(robot.energy for robot in self.scouts + self.collectors), 2)
         marine_stress = round(sum(agent.stress for agent in self.marine_life), 2)
         total = round(
@@ -401,6 +518,7 @@ class SimulationEngine:
         )
 
     def _record_history(self) -> None:
+        """Append the current score and counts to history."""
         score = self._current_score()
         stats = self._current_stats()
         self.stats_history.append(
@@ -416,6 +534,11 @@ class SimulationEngine:
         )
 
     def get_snapshot(self) -> dict:
+        """Serialize the current world state for API clients.
+
+        Returns:
+            Snapshot payload as a plain dictionary.
+        """
         snapshot = SimulationSnapshot(
             tick=self.tick,
             phase=self.phase,
@@ -429,4 +552,9 @@ class SimulationEngine:
         return snapshot.model_dump()
 
     def get_stats_history(self) -> list[dict]:
+        """Return recorded per-tick history entries.
+
+        Returns:
+            Serialized history entries.
+        """
         return [entry.model_dump() for entry in self.stats_history]

@@ -2,6 +2,14 @@ import { useEffect, useRef } from "react";
 import { getRenderer } from "../renderers/registry";
 import type { AgentState, BaseState } from "../types";
 
+/**
+ * Paint the ocean background and base platform before agent rendering.
+ *
+ * @param ctx Active 2D drawing context.
+ * @param base Base position and interaction radius.
+ * @param width Canvas width.
+ * @param height Canvas height.
+ */
 function drawBase(
   ctx: CanvasRenderingContext2D,
   base: BaseState | null,
@@ -43,6 +51,9 @@ export default function Canvas({
   width = 960,
   height = 640,
 }: CanvasProps) {
+  /**
+   * Draw the latest simulation frame whenever agents or bounds change.
+   */
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {

@@ -1,6 +1,9 @@
+/** Lifecycle phases emitted by the backend runtime. */
 export type SimulationPhase = "idle" | "running" | "stopped" | "completed";
+/** Agent kinds currently supported by the frontend renderer registry. */
 export type AgentType = "scout" | "collector" | "marine_life" | "trash";
 
+/** Runtime configuration shared between frontend and backend. */
 export interface SimulationConfig {
   width: number;
   height: number;
@@ -38,12 +41,14 @@ export interface SimulationConfig {
   sharing_mode: "global" | "local";
 }
 
+/** Serialized base position and radius. */
 export interface BaseState {
   x: number;
   y: number;
   radius: number;
 }
 
+/** Aggregated counters for one snapshot tick. */
 export interface SimulationStats {
   scouts: number;
   collectors: number;
@@ -53,6 +58,7 @@ export interface SimulationStats {
   delivered_trash: number;
 }
 
+/** Score breakdown for one snapshot tick. */
 export interface ScoreState {
   total: number;
   trash_delivered: number;
@@ -61,6 +67,7 @@ export interface ScoreState {
   energy_remaining: number;
 }
 
+/** Domain event emitted by the backend engine. */
 export interface SimulationEvent {
   event_type: string;
   actor_id?: string | null;
@@ -69,6 +76,7 @@ export interface SimulationEvent {
   payload: Record<string, unknown>;
 }
 
+/** Serialized state for one active simulation actor. */
 export interface AgentState {
   id: string;
   agent_type: AgentType;
@@ -84,6 +92,7 @@ export interface AgentState {
   metadata: Record<string, unknown>;
 }
 
+/** Full snapshot payload returned by the backend. */
 export interface SimulationSnapshot {
   tick: number;
   phase: SimulationPhase;
@@ -95,6 +104,7 @@ export interface SimulationSnapshot {
   events: SimulationEvent[];
 }
 
+/** Historical score and count entry returned by the stats endpoint. */
 export interface HistoryEntry {
   tick: number;
   delivered_trash: number;
@@ -105,6 +115,7 @@ export interface HistoryEntry {
   trash_remaining: number;
 }
 
+/** Canvas renderer contract for one agent type. */
 export interface Renderer {
   color: string;
   size: number;

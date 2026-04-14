@@ -55,6 +55,12 @@ interface ControlPanelProps {
   onReset: (nextConfig: SimulationConfig) => void;
 }
 
+/**
+ * Render controls for connection state and the core simulation parameters.
+ *
+ * @param props Component props.
+ * @returns Mission control panel UI.
+ */
 export default function ControlPanel({
   connected,
   config: incomingConfig,
@@ -69,6 +75,12 @@ export default function ControlPanel({
     setConfig((prev) => ({ ...prev, ...incomingConfig }));
   }, [incomingConfig]);
 
+  /**
+   * Update one numeric config field in local form state.
+   *
+   * @param key Configuration key to change.
+   * @param value Next raw input value.
+   */
   const handleChange = (key: keyof SimulationConfig, value: string) => {
     setConfig((prev) => ({ ...prev, [key]: Number(value) }));
   };
