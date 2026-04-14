@@ -24,6 +24,8 @@ node_modules/
 build/
 dist/
 coverage/
+!frontend/package.json
+!frontend/package-lock.json
 
 # Environment files
 .env
