@@ -13,6 +13,10 @@ backend と frontend が同じ契約を見る状態を作る。
 - `AgentState` に `role`, `vx`, `vy`, `status`, `metadata` がある
 - 既存 API が壊れず最低限起動する
 
+### 状態
+
+- 完了
+
 ## Milestone 2: Engine Refactor
 
 ### 目的
@@ -26,6 +30,10 @@ backend と frontend が同じ契約を見る状態を作る。
 - trash 回収数が取れる
 - score が毎 tick 更新される
 
+### 状態
+
+- 完了
+
 ## Milestone 3: Frontend Alignment
 
 ### 目的
@@ -37,6 +45,10 @@ backend と frontend が同じ契約を見る状態を作る。
 - ControlPanel が新 config を編集できる
 - StatsPanel が score と新 stats を表示できる
 - renderer が新 role 名に対応している
+
+### 状態
+
+- 完了
 
 ## Milestone 4: Team Extension Ready
 
@@ -50,3 +62,10 @@ backend と frontend が同じ契約を見る状態を作る。
 - agent ごとの追加項目が `metadata` に整理されている
 - コンポーネント追加箇所がドキュメント化されている
 - 追加仕様が既存契約を壊さない
+
+### 状態
+
+- 進行中
+- backend の Google docstring 整備は完了
+- frontend の JSDoc 整備と documents 更新を継続中
+- 今後は拡張ポイントの明文化を増やす

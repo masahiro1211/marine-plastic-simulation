@@ -3,6 +3,11 @@ import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
 import useSimulation from "./hooks/useSimulation";
 
+/**
+ * Render the main simulation dashboard.
+ *
+ * @returns Root application layout.
+ */
 export default function App() {
   const {
     agents,
@@ -19,6 +24,11 @@ export default function App() {
     resetViaApi,
   } = useSimulation();
 
+  /**
+   * Reset the simulation through WebSocket when connected and through REST otherwise.
+   *
+   * @param nextConfig New configuration to apply.
+   */
   const handleReset = (nextConfig: typeof config) => {
     if (connected) {
       reset(nextConfig);
