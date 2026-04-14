@@ -87,6 +87,11 @@ interface SimulationState {
   fetchStatsHistory: () => Promise<HistoryEntry[]>;
 }
 
+/**
+ * Manage simulation transport state across REST bootstrap and WebSocket streaming.
+ *
+ * @returns Aggregated simulation state and transport actions for the UI.
+ */
 export default function useSimulation(): SimulationState {
   const [agents, setAgents] = useState<AgentState[]>([]);
   const [stats, setStats] = useState<SimulationStats>(DEFAULT_STATS);
@@ -98,6 +103,11 @@ export default function useSimulation(): SimulationState {
   const [connected, setConnected] = useState<boolean>(false);
   const wsRef = useRef<WebSocket | null>(null);
 
+  /**
+   * Apply a partial snapshot payload to local React state.
+   *
+   * @param data Snapshot payload received from REST or WebSocket.
+   */
   const applySnapshot = useCallback((data: Partial<SimulationSnapshot>) => {
     setAgents(data.agents ?? []);
     setStats(data.stats ?? DEFAULT_STATS);
@@ -112,6 +122,9 @@ export default function useSimulation(): SimulationState {
     }
   }, []);
 
+  /**
+   * Open the simulation WebSocket and start receiving tick snapshots.
+   */
   const connect = useCallback(() => {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
@@ -124,6 +137,9 @@ export default function useSimulation(): SimulationState {
     };
   }, [applySnapshot]);
 
+  /**
+   * Close the active simulation WebSocket connection if one exists.
+   */
   const disconnect = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -131,6 +147,12 @@ export default function useSimulation(): SimulationState {
     }
   }, []);
 
+  /**
+   * Send a control message to the simulation server over WebSocket.
+   *
+   * @param action Action name understood by the backend.
+   * @param payload Optional payload merged into the outbound message.
+   */
   const sendAction = useCallback(
     (action: string, payload?: Record<string, unknown>) => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -140,13 +162,27 @@ export default function useSimulation(): SimulationState {
     []
   );
 
+  /**
+   * Reset the running simulation over WebSocket using the provided configuration.
+   *
+   * @param nextConfig Configuration to apply after reset.
+   */
   const reset = useCallback(
     (nextConfig: SimulationConfig) => sendAction("reset", { config: nextConfig }),
     [sendAction]
   );
 
+  /**
+   * Request the backend to stop the running simulation.
+   */
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
 
+  /**
+   * Reset the simulation through REST when no WebSocket session is active.
+   *
+   * @param nextConfig Configuration to persist before fetching a fresh snapshot.
+   * @returns Promise that resolves when local state has been refreshed.
+   */
   const resetViaApi = useCallback(
     async (nextConfig: SimulationConfig) => {
       const response = await fetch(`${API_URL}/api/config`, {
@@ -163,6 +199,11 @@ export default function useSimulation(): SimulationState {
     [applySnapshot]
   );
 
+  /**
+   * Fetch the per-tick score history used by secondary analytics views.
+   *
+   * @returns Historical entries from the backend.
+   */
   const fetchStatsHistory = useCallback(async (): Promise<HistoryEntry[]> => {
     const response = await fetch(`${API_URL}/api/stats/history`);
     return (await response.json()) as HistoryEntry[];

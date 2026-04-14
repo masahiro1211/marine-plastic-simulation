@@ -6,6 +6,12 @@ interface MetricProps {
   tone?: string;
 }
 
+/**
+ * Render one label/value pair inside the stats panel.
+ *
+ * @param props Metric presentation props.
+ * @returns Metric row.
+ */
 function Metric({ label, value, tone = "text-slate-200" }: MetricProps) {
   return (
     <div className="flex justify-between gap-3 text-sm">
@@ -22,6 +28,12 @@ interface StatsPanelProps {
   phase: SimulationPhase;
 }
 
+/**
+ * Render the current simulation counters and score breakdown.
+ *
+ * @param props Component props.
+ * @returns Status panel UI.
+ */
 export default function StatsPanel({
   stats,
   score,

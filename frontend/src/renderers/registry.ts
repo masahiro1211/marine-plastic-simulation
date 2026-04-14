@@ -4,6 +4,9 @@ import marineLifeRenderer from "./marineLifeRenderer";
 import scoutRenderer from "./scoutRenderer";
 import trashRenderer from "./trashRenderer";
 
+/**
+ * Renderer lookup table keyed by backend agent type.
+ */
 const renderers: Record<AgentType, Renderer> = {
   scout: scoutRenderer,
   collector: collectorRenderer,
@@ -21,6 +24,12 @@ const fallbackRenderer: Renderer = {
   },
 };
 
+/**
+ * Resolve the renderer used for a given agent type.
+ *
+ * @param agentType Backend-provided agent type.
+ * @returns Matching renderer or a generic fallback renderer.
+ */
 export function getRenderer(agentType: AgentType): Renderer {
   return renderers[agentType] ?? fallbackRenderer;
 }

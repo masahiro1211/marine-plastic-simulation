@@ -7,16 +7,16 @@
 
 ## 2. 現時点の結論
 
-現状のコードは「fish / predator / plastic の生態系シミュレーション」であり、  
-目標仕様である「scout / collector / marine_life / trash の役割分担型ロボットシミュレーション」とは一致していない。
+現在のコードは、目標仕様である  
+`scout / collector / marine_life / trash` の役割分担型ロボットシミュレーションへ移行済みである。
 
-したがって、次の前提で実装を進める。
+現在の実装前提は次のとおり。
 
-- 既存コードは全面破棄しない
-- 既存の描画、WebSocket、FastAPI の土台は再利用する
-- ドメイン用語を新仕様へ寄せる
-- API 契約を先に安定化させる
-- UI 改修は backend の契約固定後に行う
+- backend は FastAPI + WebSocket でシミュレーション実行と snapshot 配信を担う
+- frontend は React + TypeScript + Canvas で設定変更と描画を担う
+- `SimulationConfig` / `SimulationSnapshot` / `AgentState` は backend と frontend で共有前提の契約とする
+- score、events、phase、base 情報は snapshot に含める
+- CI では backend test、frontend build、Docker build を最低限の品質ゲートとする
 
 ## 3. 実装対象の正式定義
 
@@ -86,35 +86,31 @@
 ## 5. 既存コードの再利用方針
 
 - `backend/app/main.py`: 再利用
-- `backend/app/api/*`: 再利用しつつ契約更新
-- `backend/app/simulation/engine.py`: 大幅改修
-- `backend/app/simulation/agents/base.py`: 再利用
-- `backend/app/simulation/agents/fish.py`: `marine_life` のベースへ転用可
-- `backend/app/simulation/agents/plastic.py`: `trash` のベースへ転用可
-- `backend/app/simulation/agents/predator.py`: 直接流用は避け、`collector` として再設計推奨
-- `frontend/src/renderers/*`: registry 構造は維持
-- `frontend/src/components/ControlPanel.js`: ラベルと入力項目を全面更新
-- `frontend/src/components/StatsPanel.js`: 表示項目を全面更新
+- `backend/app/api/*`: 再利用しつつ新契約に更新済み
+- `backend/app/simulation/engine.py`: 新ループへ改修済み
+- `backend/app/simulation/agents/base.py`: 共通基底として再利用
+- `frontend/src/renderers/*`: registry 構造を維持したまま新 agent 種別へ対応済み
+- `frontend/src/components/ControlPanel.tsx`: 主要パラメータ編集 UI として更新済み
+- `frontend/src/components/StatsPanel.tsx`: score と新 stats 表示へ更新済み
+- `frontend/src/hooks/useSimulation.ts`: REST + WebSocket の橋渡しとして整理済み
 
-## 6. 実装開始条件
+## 6. 現在の品質基準
 
-以下が揃うまでは大きなコード実装に入らない。
+以後の変更では、以下を維持する。
 
-- 新しい Config 契約が確定している
-- 新しい Snapshot 契約が確定している
-- スコア式が固定している
-- `marine_life` のストレス仕様が固定している
-- `scout` と `collector` の責務境界が文章で定義されている
+- Config 契約を backend / frontend で崩さない
+- Snapshot 契約の後方互換を不用意に壊さない
+- `scout` と `collector` の責務を再び混在させない
+- `marine_life` の stress と respawn ルールを保つ
+- CI の backend test、frontend build、Docker build を通す
 
-## 7. 実装順
+## 7. 今後の変更順
 
-1. schema 更新
-2. engine 更新
-3. agent 役割分離
-4. API 更新
-5. frontend 更新
-6. パラメータ調整
-7. スライド・説明文言の更新
+1. schema 変更の必要性確認
+2. backend engine / API 変更
+3. frontend 契約追随
+4. テストと CI の確認
+5. `documents/` と `program_docs/` の更新
 
 ## 8. 優先しないもの
 
