@@ -1,7 +1,0 @@
-Implementation rules for this repository:
-
-- Treat `documents/` as the short decision and readiness index.
-- Treat `program_docs/` as the detailed behavior and runtime documentation.
-- Keep Docker Compose as the primary execution path.
-- Implement in this order: schema -> engine/api -> frontend -> tests/CI -> docs sync.
-- When behavior changes, update `program_docs/` in the same change.

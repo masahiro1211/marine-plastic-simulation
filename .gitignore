@@ -1,12 +1,35 @@
-__pycache__/
-*.pyc
-.env
-node_modules/
-build/
-.venv/
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
 
-#ogawa-memo : ignore .codex 
+# Codex local metadata
 .codex
 
-#ogawa-memo : docs is folder for codex to storage their implemantation plan, program documents and walkthrough 
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+
+# Node / frontend
+node_modules/
+build/
+dist/
+coverage/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Generated docs artifacts
 docs/
