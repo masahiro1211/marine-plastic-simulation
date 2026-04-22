@@ -84,6 +84,19 @@ class SimulationEngine:
                     self.config.max_energy,
                 )
             )
+        # 追加: 手動回収ロボットの生成
+        for _ in range(self.config.manual_collector_count):
+            self.agents.append(
+                Collector(
+                    random.uniform(40, self.config.width - 40),
+                    random.uniform(self.config.height * 0.45, self.config.height - 80),
+                    self.config.collector_speed,
+                    self.config.collector_sensor_radius,
+                    self.config.collector_pickup_radius,
+                    self.config.max_energy,
+                    is_manual=True
+                )
+            )
         for _ in range(self.config.marine_life_count):
             self._spawn_marine_life()
         for _ in range(self.config.initial_trash_count):
@@ -355,6 +368,12 @@ class SimulationEngine:
             for other in robots[index + 1 :]:
                 if robot.distance_to(other) <= self.config.collision_radius:
                     self.collisions += 1
+                    #  ここが抜けている可能性が高いです！追加してください 
+                    if hasattr(robot, "apply_collision_penalty"): 
+                        robot.apply_collision_penalty()
+                    if hasattr(other, "apply_collision_penalty"): 
+                        other.apply_collision_penalty()
+                    #  ここまで 
                     self.current_events.append(
                         SimulationEvent(
                             event_type="collision_detected",
@@ -363,7 +382,13 @@ class SimulationEngine:
                             tick=self.tick,
                         )
                     )
-
+        #  魚とぶつかった時の処理も念のため追加してください
+        for robot in self.collectors:
+            if getattr(robot, "is_manual", False):
+                for life in self.marine_life:
+                    if robot.distance_to(life) <= self.config.collision_radius:
+                        robot.apply_collision_penalty()
+        #  ここまで 
     def _cleanup_shared_targets(self) -> None:
         active_trash_ids = {trash.id for trash in self.trash_items}
         self.shared_targets = {

@@ -44,6 +44,16 @@ async def simulation_ws(websocket: WebSocket):
                     engine.reset(SimulationConfig(**config_data))
                 elif action == "start":
                     engine.start()
+                # 追加開始: 手動ロボットの操作シグナルを受け取る 
+                elif action == "manual_move":
+                    vx = data.get("vx", 0.0)
+                    vy = data.get("vy", 0.0)
+                    # 全エージェントの中から手動ロボットを探して、入力された方向をセットする
+                    for agent in engine.collectors:
+                        if getattr(agent, "is_manual", False):
+                            agent.manual_vx = vx
+                            agent.manual_vy = vy
+                #  追加終了 
             except asyncio.TimeoutError:
                 pass
 

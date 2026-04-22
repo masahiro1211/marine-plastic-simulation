@@ -15,6 +15,8 @@ class SimulationConfig(BaseModel):
 
     scout_count: int = 2
     collector_count: int = 3
+    # 追加: 手動回収ロボットの数（デフォルト1機）
+    manual_collector_count: int = 1
     marine_life_count: int = 10
     initial_trash_count: int = 18
 
@@ -32,7 +34,7 @@ class SimulationConfig(BaseModel):
     collector_sensor_radius: float = 42
     collector_pickup_radius: float = 16
     marine_life_avoid_radius: float = 90
-    collision_radius: float = 18
+    collision_radius: float = 24
     base_radius: float = 48
 
     max_energy: float = 100

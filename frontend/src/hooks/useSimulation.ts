@@ -85,6 +85,7 @@ interface SimulationState {
   stop: () => void;
   resetViaApi: (nextConfig: SimulationConfig) => Promise<void>;
   fetchStatsHistory: () => Promise<HistoryEntry[]>;
+  sendManualMove: (vx: number, vy: number) => void; // ✨ 追加: 関数の型定義
 }
 
 export default function useSimulation(): SimulationState {
@@ -146,7 +147,14 @@ export default function useSimulation(): SimulationState {
   );
 
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
-
+  // 追加開始: 手動操作の信号をバックエンドに送る関数 
+  const sendManualMove = useCallback(
+    (vx: number, vy: number) => {
+      sendAction("manual_move", { vx, vy });
+    },
+    [sendAction]
+  );
+  // 追加終了 
   const resetViaApi = useCallback(
     async (nextConfig: SimulationConfig) => {
       const response = await fetch(`${API_URL}/api/config`, {
@@ -201,5 +209,6 @@ export default function useSimulation(): SimulationState {
     stop,
     resetViaApi,
     fetchStatsHistory,
+    sendManualMove, // 追加: return オブジェクトに関数を追加
   };
 }

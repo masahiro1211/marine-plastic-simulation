@@ -1,3 +1,4 @@
+import { useEffect } from "react"; // 追加
 import Canvas from "./components/Canvas";
 import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
@@ -17,6 +18,7 @@ export default function App() {
     disconnect,
     reset,
     resetViaApi,
+    sendManualMove, // 追加: useSimulationから手動操作用の送信関数を受け取る
   } = useSimulation();
 
   const handleReset = (nextConfig: typeof config) => {
@@ -26,7 +28,44 @@ export default function App() {
     }
     void resetViaApi(nextConfig);
   };
+// 追加開始: キーボード入力の監視とバックエンドへの送信 
+useEffect(() => {
+  // シミュレーションが接続されていない、または送信関数がまだ無い場合は何もしない
+  if (!connected || !sendManualMove) return;
 
+  const handleKeyDown = (e: KeyboardEvent) => {
+    let vx = 0;
+    let vy = 0;
+
+    // 矢印キー（またはWASD）の入力を判定してベクトルを作る
+    if (e.key === "ArrowUp" || e.key === "w") vy = -1.0;
+    if (e.key === "ArrowDown" || e.key === "s") vy = 1.0;
+    if (e.key === "ArrowLeft" || e.key === "a") vx = -1.0;
+    if (e.key === "ArrowRight" || e.key === "d") vx = 1.0;
+
+    // 矢印かWASDが押されたら、その方向のベクトルを送信する
+    if (vx !== 0 || vy !== 0) {
+      sendManualMove(vx, vy);
+    }
+  };
+
+  const handleKeyUp = (e: KeyboardEvent) => {
+    // キーを離した時はロボットを止めるために(0, 0)を送信する
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d"].includes(e.key)) {
+      sendManualMove(0.0, 0.0);
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keyup", handleKeyUp);
+
+  // クリーンアップ関数（コンポーネントが再描画される時に監視をリセット）
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+    window.removeEventListener("keyup", handleKeyUp);
+  };
+}, [connected, sendManualMove]);
+//追加終了
   return (
     <div className="min-h-screen bg-[#020817] text-slate-50 p-6">
       <div className="max-w-[1540px] mx-auto">
