@@ -368,7 +368,7 @@ class SimulationEngine:
             for other in robots[index + 1 :]:
                 if robot.distance_to(other) <= self.config.collision_radius:
                     self.collisions += 1
-                    #  ここが抜けている可能性が高いです！追加してください 
+                    #  ここから追加 
                     if hasattr(robot, "apply_collision_penalty"): 
                         robot.apply_collision_penalty()
                     if hasattr(other, "apply_collision_penalty"): 
@@ -382,7 +382,7 @@ class SimulationEngine:
                             tick=self.tick,
                         )
                     )
-        #  魚とぶつかった時の処理も念のため追加してください
+        #  魚とぶつかった時の処理を追加
         for robot in self.collectors:
             if getattr(robot, "is_manual", False):
                 for life in self.marine_life:
