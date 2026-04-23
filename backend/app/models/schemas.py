@@ -43,6 +43,11 @@ class SimulationConfig(BaseModel):
         stress_threshold: Stress level at which marine life is lost.
         marine_life_respawn_delay: Delay before lost marine life respawns.
         sharing_mode: Strategy for scout-to-collector target sharing.
+        scout_search_duration: Empty (b) search ticks before reverting to (a) scan.
+        scout_levy_min_steps: Minimum straight-line steps per Lévy leg.
+        scout_levy_max_steps: Maximum straight-line steps per Lévy leg.
+        scout_levy_mu: Lévy distribution exponent for step length sampling.
+        scout_battery_enabled: Whether scouts consume energy and return to base.
     """
 
     width: float = 960
@@ -87,6 +92,12 @@ class SimulationConfig(BaseModel):
     marine_life_respawn_delay: int = 90
 
     sharing_mode: Literal["global", "local"] = "global"
+
+    scout_search_duration: int = 60
+    scout_levy_min_steps: int = 30
+    scout_levy_max_steps: int = 180
+    scout_levy_mu: float = 2.0
+    scout_battery_enabled: bool = False
 
 
 class BaseState(BaseModel):
