@@ -9,16 +9,16 @@
 
 ### Backend
 
-- `SimulationConfig` は `scout / collector / marine_life / trash` と移動・エネルギー・stress 系の設定を持つ
+- `SimulationConfig` は `scout / collector / marine_life / trash` と移動・エネルギー・群れ挙動・誤飲半径の設定を持つ
 - `SimulationSnapshot` は `phase`, `base`, `stats`, `score`, `events` を含む
-- engine は target 共有、trash 回収、battery、stress、respawn、score を持つ
+- engine は target 共有、trash 回収、battery、score、魚-ロボット接触カウントと魚の誤飲処理を持つ
 - backend unit test は新契約に対して実装済み
 - 主要 Python モジュールの docstring は Google 形式へ整備済み
 
 ### Frontend
 
 - ControlPanel は主要 5 項目の設定変更に対応
-- StatsPanel は phase、score、robot 数、stress、energy を表示
+- StatsPanel は phase、score、robot 数、energy を表示
 - renderer は `scout / collector / marine_life / trash` を描画可能
 - hook は REST bootstrap と WebSocket streaming を分離して扱う
 - frontend lockfile は CI の `npm ci` に合わせて更新済み

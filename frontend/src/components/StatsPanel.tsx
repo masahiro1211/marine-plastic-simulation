@@ -61,7 +61,6 @@ export default function StatsPanel({
       <div className="border-t border-slate-800 pt-3 space-y-1">
         <Metric label="Active Robots" value={stats.active_robots} />
         <Metric label="Collisions" value={score.collisions} tone="text-rose-300" />
-        <Metric label="Stress" value={score.marine_life_stress} tone="text-fuchsia-300" />
         <Metric label="Energy Left" value={score.energy_remaining} tone="text-teal-300" />
       </div>
     </div>

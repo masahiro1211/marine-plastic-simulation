@@ -17,11 +17,13 @@
 - バッテリー 0 のロボットも低速帰還モードで自力帰還可能とする
 - 帰還速度は後で調整可能なパラメータとして持つ
 
-### DECISION: marine life のストレス結果
+### DECISION: marine life のロボット接触・ゴミ誤飲
 
-- stress 閾値超過時は marine life を消滅扱いとする
-- 生態系悪化表現として、marine life の再生成頻度を通常より遅くする
-- 再生成遅延は後でパラメータ調整可能な設計にする
+- 旧 stress 蓄積・消滅・再生成ルールは廃止する
+- marine life は常に生存し、個体数は `marine_life_count` を維持する
+- ロボットが `marine_life_avoid_radius` へ入った瞬間をエッジ検知して `robot_fish_contacts` を加算する
+- `fish_eat_radius` 内のごみは偶発的に食べて消し、`fish_ate_trash` を加算する
+- 接触・誤飲はスコア計算や events には載せず、backend stats のみで可視化する
 
 ### DECISION: trash の出現
 

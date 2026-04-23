@@ -46,7 +46,8 @@ export default function App() {
           </h1>
           <p className="text-slate-400 mt-2 max-w-3xl text-sm leading-6">
             Scout robots discover drifting trash, collectors return it to the
-            base, and marine life stress rises when robots crowd the habitat.
+            base, while marine life keeps schooling, dodges passing robots, and
+            occasionally ingests trash that drifts within reach.
           </p>
         </div>
 

@@ -4,7 +4,7 @@ import unittest
 
 from app.models.schemas import SimulationConfig
 from app.simulation.engine import SimulationEngine
-from app.simulation.agents import Collector, MarineLife, Scout, Trash
+from app.simulation.agents import Collector, Trash
 
 
 class SimulationEngineTests(unittest.TestCase):
@@ -51,33 +51,6 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
-
-    def test_marine_life_can_be_lost_and_respawn(self) -> None:
-        engine = SimulationEngine(
-            SimulationConfig(
-                scout_count=1,
-                collector_count=0,
-                marine_life_count=1,
-                initial_trash_count=0,
-                stress_threshold=0.2,
-                marine_life_respawn_delay=1,
-                steps=10,
-            )
-        )
-        scout = next(agent for agent in engine.agents if isinstance(agent, Scout))
-        marine_life = next(agent for agent in engine.agents if isinstance(agent, MarineLife))
-
-        scout.x = 100
-        scout.y = 100
-        marine_life.x = 100
-        marine_life.y = 100
-
-        engine.start()
-        engine.step()
-        self.assertFalse(marine_life.alive)
-
-        engine.step()
-        self.assertGreaterEqual(len(engine.marine_life), 1)
 
 
 if __name__ == "__main__":

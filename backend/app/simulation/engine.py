@@ -66,7 +66,8 @@ class SimulationEngine:
         self.stats_history: deque[HistoryEntry] = deque(maxlen=MAX_HISTORY)
         self.delivered_trash = 0
         self.collisions = 0
-        self.pending_marine_life_respawns: list[int] = []
+        self.robot_fish_contacts = 0
+        self.fish_ate_trash = 0
         self._init_agents()
 
     def _init_agents(self) -> None:
@@ -75,9 +76,10 @@ class SimulationEngine:
         self.agents.clear()
         self.shared_targets.clear()
         self.current_events.clear()
-        self.pending_marine_life_respawns.clear()
         self.delivered_trash = 0
         self.collisions = 0
+        self.robot_fish_contacts = 0
+        self.fish_ate_trash = 0
         self.base = BaseState(
             x=self.config.width / 2,
             y=max(self.config.height - 36, 0),
@@ -166,7 +168,6 @@ class SimulationEngine:
         self.current_events = []
 
         self._spawn_runtime_trash()
-        self._respawn_marine_life_if_due()
 
         for trash in self.trash_items:
             trash.update(self)
@@ -236,6 +237,19 @@ class SimulationEngine:
         """
         robots = self.scouts + self.collectors
         return [robot for robot in robots if robot.distance_to_point(x, y) <= radius]
+
+    def find_marine_life_near(self, x: float, y: float, radius: float) -> list[MarineLife]:
+        """Find active marine life within a radius of a point.
+
+        Args:
+            x: Query horizontal position.
+            y: Query vertical position.
+            radius: Search radius.
+
+        Returns:
+            Matching marine life actors.
+        """
+        return [life for life in self.marine_life if life.distance_to_point(x, y) <= radius]
 
     def share_target(self, trash: Trash, reporter: Scout) -> None:
         """Publish a trash detection event for collectors.
@@ -378,41 +392,19 @@ class SimulationEngine:
                     )
                 )
 
-    def mark_marine_life_lost(self, agent: MarineLife) -> None:
-        """Deactivate stressed marine life and schedule respawn.
+    def fish_eats_trash(self, fish: MarineLife, trash: Trash) -> None:
+        """Deactivate trash ingested by a marine life actor.
 
         Args:
-            agent: Marine life actor to mark as lost.
+            fish: Marine life actor performing the ingestion.
+            trash: Trash actor being removed from the world.
         """
-        if not agent.alive:
+        if not trash.alive:
             return
-        agent.alive = False
-        agent.status = "lost"
-        self.pending_marine_life_respawns.append(self.tick + self.config.marine_life_respawn_delay)
-        self.current_events.append(
-            SimulationEvent(
-                event_type="marine_life_lost",
-                actor_id=agent.id,
-                tick=self.tick,
-                payload={"stress": round(agent.stress, 2)},
-            )
-        )
-
-    def _respawn_marine_life_if_due(self) -> None:
-        """Respawn marine life actors whose delay has elapsed."""
-        remaining_due = []
-        for due_tick in self.pending_marine_life_respawns:
-            if due_tick <= self.tick:
-                self._spawn_marine_life()
-                self.current_events.append(
-                    SimulationEvent(
-                        event_type="marine_life_respawned",
-                        tick=self.tick,
-                    )
-                )
-            else:
-                remaining_due.append(due_tick)
-        self.pending_marine_life_respawns = remaining_due
+        trash.alive = False
+        self.shared_targets.pop(trash.id, None)
+        self.fish_ate_trash += 1
+        fish.ate_trash_count += 1
 
     def _spawn_runtime_trash(self) -> None:
         """Spawn periodic runtime trash when configuration allows it."""
@@ -492,6 +484,8 @@ class SimulationEngine:
             trash_remaining=len(self.trash_items),
             active_robots=sum(1 for robot in self.scouts + self.collectors if robot.energy > 0),
             delivered_trash=self.delivered_trash,
+            robot_fish_contacts=self.robot_fish_contacts,
+            fish_ate_trash=self.fish_ate_trash,
         )
 
     def _current_score(self) -> ScoreState:
@@ -501,11 +495,9 @@ class SimulationEngine:
             Current score state.
         """
         energy_remaining = round(sum(robot.energy for robot in self.scouts + self.collectors), 2)
-        marine_stress = round(sum(agent.stress for agent in self.marine_life), 2)
         total = round(
             self.delivered_trash * 12
             - self.collisions * 2
-            - marine_stress * 1.5
             + energy_remaining * 0.05,
             2,
         )
@@ -513,7 +505,6 @@ class SimulationEngine:
             total=total,
             trash_delivered=self.delivered_trash,
             collisions=self.collisions,
-            marine_life_stress=marine_stress,
             energy_remaining=energy_remaining,
         )
 
@@ -526,7 +517,6 @@ class SimulationEngine:
                 tick=self.tick,
                 delivered_trash=score.trash_delivered,
                 collisions=score.collisions,
-                marine_life_stress=score.marine_life_stress,
                 energy_remaining=score.energy_remaining,
                 total_score=score.total,
                 trash_remaining=stats.trash_remaining,
