@@ -26,7 +26,7 @@ backend と frontend が同じ契約を見る状態を作る。
 ### 完了条件
 
 - scout と collector の責務が分離されている
-- marine life の stress 更新がある
+- marine life のロボット接触数と誤飲ゴミ数が stats で取れる
 - trash 回収数が取れる
 - score が毎 tick 更新される
 
