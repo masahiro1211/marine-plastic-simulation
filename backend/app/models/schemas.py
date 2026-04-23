@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SimulationConfig(BaseModel):
@@ -38,12 +38,18 @@ class SimulationConfig(BaseModel):
         low_energy_threshold: Threshold that triggers base return.
         trash_spawn_interval: Tick interval for spawning new trash.
         max_trash: Maximum trash agents allowed at once.
-        stress_gain_per_robot: Stress added per nearby robot.
-        stress_decay_per_tick: Stress decay when marine life is calm.
-        stress_threshold: Stress level at which marine life is lost.
-        marine_life_respawn_delay: Delay before lost marine life respawns.
+        fish_eat_radius: Range in which marine life incidentally ingests trash.
+        flock_zor_radius: Couzin zone-of-repulsion radius between marine life.
+        flock_zoo_radius: Couzin zone-of-orientation outer radius.
+        flock_zoa_radius: Couzin zone-of-attraction outer radius.
+        flock_alignment_weight: Steering weight for zone-of-orientation alignment.
+        flock_cohesion_weight: Steering weight for zone-of-attraction cohesion.
+        flock_max_turn_rate: Maximum heading change per tick in radians.
+        flock_noise: Random heading perturbation added per tick in radians.
         sharing_mode: Strategy for scout-to-collector target sharing.
     """
+
+    model_config = ConfigDict(extra="ignore")
 
     width: float = 960
     height: float = 640
@@ -81,10 +87,15 @@ class SimulationConfig(BaseModel):
     trash_spawn_interval: int = 24
     max_trash: int = 30
 
-    stress_gain_per_robot: float = 0.85
-    stress_decay_per_tick: float = 0.18
-    stress_threshold: float = 10.0
-    marine_life_respawn_delay: int = 90
+    fish_eat_radius: float = 14.0
+
+    flock_zor_radius: float = 14
+    flock_zoo_radius: float = 45
+    flock_zoa_radius: float = 110
+    flock_alignment_weight: float = 0.6
+    flock_cohesion_weight: float = 0.35
+    flock_max_turn_rate: float = 0.35
+    flock_noise: float = 0.08
 
     sharing_mode: Literal["global", "local"] = "global"
 
@@ -145,6 +156,8 @@ class SimulationStats(BaseModel):
         trash_remaining: Number of active trash agents.
         active_robots: Number of robots with remaining energy.
         delivered_trash: Total trash delivered so far.
+        robot_fish_contacts: Cumulative robot-fish proximity entries.
+        fish_ate_trash: Cumulative trash items ingested by marine life.
     """
 
     scouts: int
@@ -153,6 +166,8 @@ class SimulationStats(BaseModel):
     trash_remaining: int
     active_robots: int
     delivered_trash: int
+    robot_fish_contacts: int = 0
+    fish_ate_trash: int = 0
 
 
 class ScoreState(BaseModel):
@@ -162,14 +177,12 @@ class ScoreState(BaseModel):
         total: Total computed score.
         trash_delivered: Delivered trash contribution.
         collisions: Collision penalty contribution.
-        marine_life_stress: Marine-life stress penalty contribution.
         energy_remaining: Remaining energy bonus contribution.
     """
 
     total: float
     trash_delivered: int
     collisions: int
-    marine_life_stress: float
     energy_remaining: float
 
 
@@ -198,7 +211,6 @@ class HistoryEntry(BaseModel):
         tick: Tick index.
         delivered_trash: Delivered trash total at this tick.
         collisions: Collision total at this tick.
-        marine_life_stress: Aggregated marine-life stress at this tick.
         energy_remaining: Aggregated robot energy at this tick.
         total_score: Computed total score at this tick.
         trash_remaining: Remaining trash count at this tick.
@@ -207,7 +219,6 @@ class HistoryEntry(BaseModel):
     tick: int
     delivered_trash: int
     collisions: int
-    marine_life_stress: float
     energy_remaining: float
     total_score: float
     trash_remaining: int

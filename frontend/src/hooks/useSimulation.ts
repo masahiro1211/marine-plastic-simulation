@@ -44,10 +44,6 @@ const DEFAULT_CONFIG: SimulationConfig = {
   low_energy_threshold: 18,
   trash_spawn_interval: 24,
   max_trash: 30,
-  stress_gain_per_robot: 0.85,
-  stress_decay_per_tick: 0.18,
-  stress_threshold: 10,
-  marine_life_respawn_delay: 90,
   sharing_mode: "global",
 };
 
@@ -58,13 +54,14 @@ const DEFAULT_STATS: SimulationStats = {
   trash_remaining: 0,
   active_robots: 0,
   delivered_trash: 0,
+  robot_fish_contacts: 0,
+  fish_ate_trash: 0,
 };
 
 const DEFAULT_SCORE: ScoreState = {
   total: 0,
   trash_delivered: 0,
   collisions: 0,
-  marine_life_stress: 0,
   energy_remaining: 0,
 };
 
