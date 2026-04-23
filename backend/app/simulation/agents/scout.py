@@ -87,6 +87,9 @@ class Scout(BaseAgent):
 
         config = world.config
         nearby_trash = world.find_trash_near(self.x, self.y, self.sensor_radius)
+        unknown_trash = [
+            trash for trash in nearby_trash if trash.id not in world.shared_targets
+        ]
         for trash in nearby_trash:
             world.share_target(trash, self)
 
@@ -100,7 +103,7 @@ class Scout(BaseAgent):
             )
             self.set_velocity_towards(world.base.x, world.base.y, speed)
         else:
-            self._update_foraging(nearby_trash, config)
+            self._update_foraging(unknown_trash, config)
 
         world.apply_robot_avoidance(self)
         world.apply_marine_life_avoidance(self)
@@ -146,10 +149,22 @@ class Scout(BaseAgent):
         self.scan_steps_remaining -= 1
 
     def _search_step(self, config) -> None:
-        """Execute one tick of (b) small-scale detailed search."""
+        """Execute one tick of (b) small-scale detailed search.
+
+        Uses a correlated random walk: the speed magnitude is held
+        constant so the scout never stalls on the spot, while the
+        heading is perturbed each tick to keep the trajectory locally
+        twisty.
+        """
         self.status = "searching"
-        self.add_random_motion(config.random_weight * 2.0)
-        self.clamp_speed(self.speed * 0.6)
+        speed = self.speed * 0.6
+        if math.hypot(self.vx, self.vy) < 1e-3:
+            heading = random.uniform(0.0, math.tau)
+        else:
+            heading = math.atan2(self.vy, self.vx)
+        heading += random.uniform(-config.random_weight, config.random_weight) * math.pi
+        self.vx = math.cos(heading) * speed
+        self.vy = math.sin(heading) * speed
 
     def _reflect_heading_at_bounds(self, width: float, height: float) -> None:
         """Bounce the scan heading off world edges to keep legs in-bounds."""

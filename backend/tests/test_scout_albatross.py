@@ -21,7 +21,11 @@ class ScoutAlbatrossTests(unittest.TestCase):
     """Behavioural tests for Albatross-inspired adaptive scouting."""
 
     def setUp(self) -> None:
+        self._random_state = random.getstate()
         random.seed(0)
+
+    def tearDown(self) -> None:
+        random.setstate(self._random_state)
 
     def _build(self, **overrides) -> SimulationEngine:
         defaults = dict(

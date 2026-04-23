@@ -93,7 +93,7 @@ class SimulationConfig(BaseModel):
 
     sharing_mode: Literal["global", "local"] = "global"
 
-    scout_search_duration: int = 60
+    scout_search_duration: int = 20
     scout_levy_min_steps: int = 30
     scout_levy_max_steps: int = 180
     scout_levy_mu: float = 2.0
