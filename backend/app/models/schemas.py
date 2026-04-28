@@ -235,3 +235,5 @@ class SimulationSnapshot(BaseModel):
     stats: SimulationStats
     score: ScoreState
     events: list[SimulationEvent]
+# 追加：手動ロボットのON/OFFフラグ
+    enable_manual_robot: bool = True
