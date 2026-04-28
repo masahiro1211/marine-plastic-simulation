@@ -87,6 +87,8 @@ class SimulationConfig(BaseModel):
     marine_life_respawn_delay: int = 90
 
     sharing_mode: Literal["global", "local"] = "global"
+    # 追加：手動ロボットのON/OFFフラグ
+    enable_manual_robot: bool = True
 
 
 class BaseState(BaseModel):
@@ -235,5 +237,3 @@ class SimulationSnapshot(BaseModel):
     stats: SimulationStats
     score: ScoreState
     events: list[SimulationEvent]
-# 追加：手動ロボットのON/OFFフラグ
-    enable_manual_robot: bool = True

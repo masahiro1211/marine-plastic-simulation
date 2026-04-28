@@ -85,6 +85,8 @@ interface SimulationState {
   stop: () => void;
   resetViaApi: (nextConfig: SimulationConfig) => Promise<void>;
   fetchStatsHistory: () => Promise<HistoryEntry[]>;
+  // ここから1行追加
+  manualMove: (dx: number, dy: number) => void;
 }
 
 /**
@@ -177,6 +179,13 @@ export default function useSimulation(): SimulationState {
    */
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
 
+  // ここから4行追加
+  const manualMove = useCallback(
+    (dx: number, dy: number) => sendAction("manual_move", { dx, dy }),
+    [sendAction]
+  );
+  // ここまで
+
   /**
    * Reset the simulation through REST when no WebSocket session is active.
    *
@@ -242,5 +251,7 @@ export default function useSimulation(): SimulationState {
     stop,
     resetViaApi,
     fetchStatsHistory,
+    // ここから1行追加
+    manualMove,
   };
 }
