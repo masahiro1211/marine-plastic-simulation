@@ -16,6 +16,7 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=1,
                 initial_trash_count=1,
                 steps=10,
+                enable_manual_robot=False,  # ←追加
             )
         )
 
@@ -36,6 +37,7 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=0,
                 initial_trash_count=1,
                 steps=10,
+                enable_manual_robot=False,  # ←追加
             )
         )
         collector = next(agent for agent in engine.agents if isinstance(agent, Collector))
@@ -62,6 +64,7 @@ class SimulationEngineTests(unittest.TestCase):
                 stress_threshold=0.2,
                 marine_life_respawn_delay=1,
                 steps=10,
+                enable_manual_robot=False,  # ←追加
             )
         )
         scout = next(agent for agent in engine.agents if isinstance(agent, Scout))

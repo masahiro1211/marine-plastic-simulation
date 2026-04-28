@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import Canvas from "./components/Canvas";
 import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
@@ -22,8 +23,60 @@ export default function App() {
     disconnect,
     reset,
     resetViaApi,
+    // ここから1行追加
+    manualMove,
   } = useSimulation();
+  // ここから追加（キーボード処理）
+  const keysPressed = useRef(new Set<string>());
+  const lastDir = useRef({ dx: 0, dy: 0 });
 
+  useEffect(() => {
+    if (!connected) return;
+
+    const updateMovement = () => {
+      let dx = 0;
+      let dy = 0;
+      const keys = keysPressed.current;
+
+      if (keys.has("w") || keys.has("arrowup")) dy -= 1;
+      if (keys.has("s") || keys.has("arrowdown")) dy += 1;
+      if (keys.has("a") || keys.has("arrowleft")) dx -= 1;
+      if (keys.has("d") || keys.has("arrowright")) dx += 1;
+
+      if (dx !== lastDir.current.dx || dy !== lastDir.current.dy) {
+        lastDir.current = { dx, dy };
+        manualMove(dx, dy);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+        keysPressed.current.add(key);
+        updateMovement();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+        keysPressed.current.delete(key);
+        updateMovement();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      manualMove(0, 0);
+      keysPressed.current.clear();
+      lastDir.current = { dx: 0, dy: 0 };
+    };
+  }, [connected, manualMove]);
+  // ここまで追加
   /**
    * Reset the simulation through WebSocket when connected and through REST otherwise.
    *
