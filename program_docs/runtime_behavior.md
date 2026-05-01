@@ -23,10 +23,11 @@
 
 ### Marine Life
 
-- 近くのロボットから離れる
-- ロボットに近づかれるほど stress が増える
-- stress が閾値を超えると消滅する
-- 消滅後は通常より遅い頻度で再生成される
+- Couzin 3-zone ルール(ZOR/ZOO/ZOA)で群れる
+- `marine_life_avoid_radius` 内のロボットから離れる
+- ロボットが回避半径へ入った瞬間をエッジ検知して `robot_fish_contacts` を加算する
+- `fish_eat_radius` 内のごみを偶発的に食べ、ごみを消して `fish_ate_trash` を加算する
+- 個体は消滅せず、`marine_life_count` を常時維持する
 
 ### Trash
 
@@ -48,7 +49,7 @@
 4. Collector が共有ターゲットや近傍ごみを追跡する
 5. ごみ回収と基地搬入を処理する
 6. ロボット同士の衝突を集計する
-7. Marine Life の stress と再生成を更新する
+7. Marine Life のロボット接触カウントと近傍ごみの誤飲処理を行う
 8. スコアと統計を更新する
 9. Snapshot を配信する
 
@@ -56,7 +57,6 @@
 
 - `trash_delivered` が増えるほど加点
 - `collisions` が増えるほど減点
-- `marine_life_stress` が高いほど減点
 - `energy_remaining` が高いほど加点
 
 ## 衝突

@@ -31,10 +31,13 @@ const DEFAULT_CONFIG: SimulationConfig = {
   low_energy_threshold: 18,
   trash_spawn_interval: 24,
   max_trash: 30,
-  stress_gain_per_robot: 0.85,
-  stress_decay_per_tick: 0.18,
-  stress_threshold: 10,
-  marine_life_respawn_delay: 90,
+  flock_zor_radius: 14,
+  flock_zoo_radius: 45,
+  flock_zoa_radius: 110,
+  flock_alignment_weight: 0.6,
+  flock_cohesion_weight: 0.35,
+  flock_max_turn_rate: 0.35,
+  flock_noise: 0.08,
   sharing_mode: "global",
 };
 
@@ -44,6 +47,8 @@ const FIELDS: Array<[keyof SimulationConfig, string]> = [
   ["collector_count", "Collector Robots"],
   ["marine_life_count", "Marine Life"],
   ["initial_trash_count", "Initial Trash"],
+  ["flock_zoo_radius", "Flock Orientation Range"],
+  ["flock_zoa_radius", "Flock Attraction Range"],
 ];
 
 interface ControlPanelProps {

@@ -30,7 +30,7 @@
 
 - `scout`: ごみ探索と共有
 - `collector`: ごみ回収
-- `marine_life`: 回避とストレス蓄積
+- `marine_life`: 回避、ロボット接触カウント、ゴミ誤飲カウント
 - `trash`: 漂流または静的オブジェクト
 
 ### コアゲームループ
@@ -40,7 +40,7 @@
 3. 行動決定
 4. 移動
 5. 回収判定
-6. ストレス更新
+6. 魚とロボットの接触カウント、魚のゴミ誤飲処理
 7. スコア更新
 8. スナップショット配信
 
@@ -101,7 +101,7 @@
 - Config 契約を backend / frontend で崩さない
 - Snapshot 契約の後方互換を不用意に壊さない
 - `scout` と `collector` の責務を再び混在させない
-- `marine_life` の stress と respawn ルールを保つ
+- `marine_life` は消滅させず、ロボット接触数と誤飲ゴミ数を backend stats で計上する
 - CI の backend test、frontend build、Docker build を通す
 
 ## 7. 今後の変更順

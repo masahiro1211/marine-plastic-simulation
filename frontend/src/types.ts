@@ -34,10 +34,14 @@ export interface SimulationConfig {
   low_energy_threshold: number;
   trash_spawn_interval: number;
   max_trash: number;
-  stress_gain_per_robot: number;
-  stress_decay_per_tick: number;
-  stress_threshold: number;
-  marine_life_respawn_delay: number;
+  fish_eat_radius?: number;
+  flock_zor_radius?: number;
+  flock_zoo_radius?: number;
+  flock_zoa_radius?: number;
+  flock_alignment_weight?: number;
+  flock_cohesion_weight?: number;
+  flock_max_turn_rate?: number;
+  flock_noise?: number;
   sharing_mode: "global" | "local";
 }
 
@@ -56,6 +60,8 @@ export interface SimulationStats {
   trash_remaining: number;
   active_robots: number;
   delivered_trash: number;
+  robot_fish_contacts: number;
+  fish_ate_trash: number;
 }
 
 /** Score breakdown for one snapshot tick. */
@@ -63,7 +69,6 @@ export interface ScoreState {
   total: number;
   trash_delivered: number;
   collisions: number;
-  marine_life_stress: number;
   energy_remaining: number;
 }
 
@@ -109,7 +114,6 @@ export interface HistoryEntry {
   tick: number;
   delivered_trash: number;
   collisions: number;
-  marine_life_stress: number;
   energy_remaining: number;
   total_score: number;
   trash_remaining: number;
