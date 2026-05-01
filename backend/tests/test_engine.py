@@ -16,6 +16,7 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=1,
                 initial_trash_count=1,
                 steps=10,
+                enable_manual_robot=False,
             )
         )
 
@@ -36,6 +37,7 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=0,
                 initial_trash_count=1,
                 steps=10,
+                enable_manual_robot=False,
             )
         )
         collector = next(agent for agent in engine.agents if isinstance(agent, Collector))
@@ -51,7 +53,6 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
-
 
 if __name__ == "__main__":
     unittest.main()

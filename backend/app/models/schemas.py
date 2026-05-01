@@ -103,6 +103,8 @@ class SimulationConfig(BaseModel):
     flock_noise: float = 0.08
 
     sharing_mode: Literal["global", "local"] = "global"
+    # 追加：手動ロボットのON/OFFフラグ
+    enable_manual_robot: bool = True
 
     scout_search_duration: int = 20
     scout_levy_min_steps: int = 30
