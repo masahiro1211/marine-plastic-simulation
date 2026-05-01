@@ -47,6 +47,11 @@ class SimulationConfig(BaseModel):
         flock_max_turn_rate: Maximum heading change per tick in radians.
         flock_noise: Random heading perturbation added per tick in radians.
         sharing_mode: Strategy for scout-to-collector target sharing.
+        scout_search_duration: Empty (b) search ticks before reverting to (a) scan.
+        scout_levy_min_steps: Minimum straight-line steps per Lévy leg.
+        scout_levy_max_steps: Maximum straight-line steps per Lévy leg.
+        scout_levy_mu: Lévy distribution exponent for step length sampling.
+        scout_battery_enabled: Whether scouts consume energy and return to base.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -98,6 +103,12 @@ class SimulationConfig(BaseModel):
     flock_noise: float = 0.08
 
     sharing_mode: Literal["global", "local"] = "global"
+
+    scout_search_duration: int = 20
+    scout_levy_min_steps: int = 30
+    scout_levy_max_steps: int = 180
+    scout_levy_mu: float = 2.0
+    scout_battery_enabled: bool = False
 
 
 class BaseState(BaseModel):
