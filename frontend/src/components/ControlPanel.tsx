@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import type { SimulationConfig, SimulationPhase } from "../types";
 
+type NumericConfigKey = {
+  [Key in keyof SimulationConfig]: SimulationConfig[Key] extends
+    | number
+    | undefined
+    ? Key
+    : never;
+}[keyof SimulationConfig] &
+  keyof SimulationConfig;
+
 const DEFAULT_CONFIG: SimulationConfig = {
   width: 960,
   height: 640,
@@ -31,6 +40,7 @@ const DEFAULT_CONFIG: SimulationConfig = {
   low_energy_threshold: 18,
   trash_spawn_interval: 24,
   max_trash: 30,
+  fish_eat_radius: 14,
   flock_zor_radius: 14,
   flock_zoo_radius: 45,
   flock_zoa_radius: 110,
@@ -39,9 +49,15 @@ const DEFAULT_CONFIG: SimulationConfig = {
   flock_max_turn_rate: 0.35,
   flock_noise: 0.08,
   sharing_mode: "global",
+  enable_manual_robot: true,
+  scout_search_duration: 20,
+  scout_levy_min_steps: 30,
+  scout_levy_max_steps: 180,
+  scout_levy_mu: 2.0,
+  scout_battery_enabled: false,
 };
 
-const FIELDS: Array<[keyof SimulationConfig, string]> = [
+const FIELDS: Array<[NumericConfigKey, string]> = [
   ["steps", "Steps"],
   ["scout_count", "Scout Robots"],
   ["collector_count", "Collector Robots"],
@@ -86,7 +102,7 @@ export default function ControlPanel({
    * @param key Configuration key to change.
    * @param value Next raw input value.
    */
-  const handleChange = (key: keyof SimulationConfig, value: string) => {
+  const handleChange = (key: NumericConfigKey, value: string) => {
     setConfig((prev) => ({ ...prev, [key]: Number(value) }));
   };
 
@@ -124,7 +140,7 @@ export default function ControlPanel({
             <span className="text-slate-300">{label}</span>
             <input
               type="number"
-              value={config[key]}
+              value={config[key] ?? ""}
               onChange={(event) => handleChange(key, event.target.value)}
               className="block w-full p-2 mt-1 rounded-lg border border-slate-700 bg-slate-900 text-white text-sm"
             />

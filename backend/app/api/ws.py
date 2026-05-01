@@ -44,7 +44,6 @@ async def simulation_ws(websocket: WebSocket):
                     engine.reset(SimulationConfig(**config_data))
                 elif action == "start":
                     engine.start()
-                # 追加：手動ロボットの操作を受信
                 elif action == "manual_move":
                     dx = data.get("dx", 0.0)
                     dy = data.get("dy", 0.0)

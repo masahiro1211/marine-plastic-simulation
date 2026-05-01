@@ -20,6 +20,7 @@ class MarineLifeContactTests(unittest.TestCase):
             steps=10_000,
             marine_life_avoid_radius=200,
             fish_eat_radius=20,
+            enable_manual_robot=False,
         )
         config_kwargs.update(overrides)
         return SimulationEngine(SimulationConfig(**config_kwargs))

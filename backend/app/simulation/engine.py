@@ -95,10 +95,9 @@ class SimulationEngine:
                     self.config.max_energy,
                 )
             )
-        #  追加：手動ロボットのスポーン 
         if self.config.enable_manual_robot:
             manual = Collector(
-                self.config.width / 2, 
+                self.config.width / 2,
                 self.config.height / 2,
                 self.config.collector_speed,
                 self.config.collector_sensor_radius,
@@ -464,12 +463,10 @@ class SimulationEngine:
         for index, robot in enumerate(robots):
             for other in robots[index + 1 :]:
                 if robot.distance_to(other) <= self.config.collision_radius:
-                    # 追加：他ロボットとの衝突ペナルティ 
                     if getattr(robot, "is_manual", False):
                         robot.apply_collision_penalty()
                     if getattr(other, "is_manual", False):
                         other.apply_collision_penalty()
-                    # ここまで 
                     self.collisions += 1
                     self.current_events.append(
                         SimulationEvent(

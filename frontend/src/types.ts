@@ -43,6 +43,12 @@ export interface SimulationConfig {
   flock_max_turn_rate?: number;
   flock_noise?: number;
   sharing_mode: "global" | "local";
+  enable_manual_robot: boolean;
+  scout_search_duration: number;
+  scout_levy_min_steps: number;
+  scout_levy_max_steps: number;
+  scout_levy_mu: number;
+  scout_battery_enabled: boolean;
 }
 
 /** Serialized base position and radius. */

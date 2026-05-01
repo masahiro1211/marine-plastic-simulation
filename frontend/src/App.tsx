@@ -4,6 +4,17 @@ import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
 import useSimulation from "./hooks/useSimulation";
 
+const MOVEMENT_KEYS = new Set([
+  "w",
+  "a",
+  "s",
+  "d",
+  "arrowup",
+  "arrowdown",
+  "arrowleft",
+  "arrowright",
+]);
+
 /**
  * Render the main simulation dashboard.
  *
@@ -23,10 +34,9 @@ export default function App() {
     disconnect,
     reset,
     resetViaApi,
-    // ここから1行追加
     manualMove,
   } = useSimulation();
-  // ここから追加（キーボード処理）
+
   const keysPressed = useRef(new Set<string>());
   const lastDir = useRef({ dx: 0, dy: 0 });
 
@@ -51,7 +61,8 @@ export default function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
-      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+      if (MOVEMENT_KEYS.has(key)) {
+        e.preventDefault();
         keysPressed.current.add(key);
         updateMovement();
       }
@@ -59,7 +70,8 @@ export default function App() {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
-      if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
+      if (MOVEMENT_KEYS.has(key)) {
+        e.preventDefault();
         keysPressed.current.delete(key);
         updateMovement();
       }
@@ -76,7 +88,7 @@ export default function App() {
       lastDir.current = { dx: 0, dy: 0 };
     };
   }, [connected, manualMove]);
-  // ここまで追加
+
   /**
    * Reset the simulation through WebSocket when connected and through REST otherwise.
    *
