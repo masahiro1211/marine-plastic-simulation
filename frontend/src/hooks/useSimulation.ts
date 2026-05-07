@@ -44,11 +44,21 @@ const DEFAULT_CONFIG: SimulationConfig = {
   low_energy_threshold: 18,
   trash_spawn_interval: 24,
   max_trash: 30,
-  stress_gain_per_robot: 0.85,
-  stress_decay_per_tick: 0.18,
-  stress_threshold: 10,
-  marine_life_respawn_delay: 90,
+  fish_eat_radius: 14,
+  flock_zor_radius: 14,
+  flock_zoo_radius: 45,
+  flock_zoa_radius: 110,
+  flock_alignment_weight: 0.6,
+  flock_cohesion_weight: 0.35,
+  flock_max_turn_rate: 0.35,
+  flock_noise: 0.08,
   sharing_mode: "global",
+  enable_manual_robot: true,
+  scout_search_duration: 20,
+  scout_levy_min_steps: 30,
+  scout_levy_max_steps: 180,
+  scout_levy_mu: 2.0,
+  scout_battery_enabled: false,
 };
 
 const DEFAULT_STATS: SimulationStats = {
@@ -58,13 +68,14 @@ const DEFAULT_STATS: SimulationStats = {
   trash_remaining: 0,
   active_robots: 0,
   delivered_trash: 0,
+  robot_fish_contacts: 0,
+  fish_ate_trash: 0,
 };
 
 const DEFAULT_SCORE: ScoreState = {
   total: 0,
   trash_delivered: 0,
   collisions: 0,
-  marine_life_stress: 0,
   energy_remaining: 0,
 };
 
@@ -85,6 +96,7 @@ interface SimulationState {
   stop: () => void;
   resetViaApi: (nextConfig: SimulationConfig) => Promise<void>;
   fetchStatsHistory: () => Promise<HistoryEntry[]>;
+  manualMove: (dx: number, dy: number) => void;
 }
 
 /**
@@ -177,6 +189,11 @@ export default function useSimulation(): SimulationState {
    */
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
 
+  const manualMove = useCallback(
+    (dx: number, dy: number) => sendAction("manual_move", { dx, dy }),
+    [sendAction]
+  );
+
   /**
    * Reset the simulation through REST when no WebSocket session is active.
    *
@@ -242,5 +259,6 @@ export default function useSimulation(): SimulationState {
     stop,
     resetViaApi,
     fetchStatsHistory,
+    manualMove,
   };
 }
