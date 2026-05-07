@@ -104,7 +104,7 @@ class SimulationConfig(BaseModel):
 
     sharing_mode: Literal["global", "local"] = "global"
     enable_manual_robot: bool = True
-
+    manual_penalty_ticks: int = 200  
     scout_search_duration: int = 20
     scout_levy_min_steps: int = 30
     scout_levy_max_steps: int = 180
