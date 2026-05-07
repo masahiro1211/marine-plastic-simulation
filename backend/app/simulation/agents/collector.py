@@ -84,27 +84,34 @@ class Collector(BaseAgent):
                     target = min(local_trash, key=self.distance_to)
                     world.pick_trash(self, target)
 
-        # 自動操作モード（既存のまま）
+        # 自動操作モード
         else:
+            # 1. 優先確認：目の前（pickup_radius内）に拾えるゴミがあるかチェック
+            target = None
+            if not self.carrying_trash_id:
+                target = world.find_collector_target(self)
+                if target is not None and self.distance_to(target) <= self.pickup_radius:
+                    world.pick_trash(self, target)
+
+            # --- ここから修正 ---
+            is_at_base = self.distance_to_point(world.base.x, world.base.y) <= world.base.radius
+
+            # 2. 状態の優先順位に基づく行動決定（if/elif/elseで完全排他にする）
             if self.carrying_trash_id:
+                # 優先度1: 運搬中
                 self.status = "delivering"
                 self.target_id = "base"
                 self.set_velocity_towards(world.base.x, world.base.y, current_speed)
-            else:
-                target = world.find_collector_target(self)
-                if target is not None:
-                    self.status = "collecting"
-                    self.target_id = target.id
-                    self.set_velocity_towards(target.x, target.y, current_speed)
-                    if self.distance_to(target) <= self.pickup_radius:
-                        world.pick_trash(self, target)
-                else:
-                    self.status = "patrolling"
-                    self.target_id = None
-                    self.add_random_motion(world.config.random_weight)
-                    self.clamp_speed(current_speed)
-
-            if world.should_return_to_base(self):
+                
+            elif is_at_base and self.energy < world.config.max_energy:
+                # 優先度2: 基地で充電中（バッテリーがMAXになるまで出撃しない）
+                self.status = "charging"
+                self.target_id = "base"
+                self.vx = 0.0
+                self.vy = 0.0
+                
+            elif self.energy <= world.config.low_energy_threshold or self.energy <= 0:
+                # 優先度3: エネルギー低下（帰還）
                 self.status = "returning_low_power" if self.energy <= 0 else "returning"
                 self.target_id = "base"
                 self.set_velocity_towards(
@@ -112,7 +119,19 @@ class Collector(BaseAgent):
                     world.base.y,
                     current_speed * (world.config.return_speed_factor if self.energy <= 0 else 1.0),
                 )
-
+                
+            elif target is not None:
+                # 優先度4: ゴミの追跡
+                self.status = "collecting"
+                self.target_id = target.id
+                self.set_velocity_towards(target.x, target.y, current_speed)
+                
+            else:
+                # 優先度5: 通常パトロール
+                self.status = "patrolling"
+                self.target_id = None
+                self.add_random_motion(world.config.random_weight)
+                self.clamp_speed(current_speed)
         # 手動操作中は魚避け・仲間避けをオフにする
         if not self.is_manual:
             world.apply_robot_avoidance(self)
