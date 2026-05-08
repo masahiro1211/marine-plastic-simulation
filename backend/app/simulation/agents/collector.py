@@ -37,8 +37,8 @@ class Collector(BaseAgent):
         })
         return data
 
-    def apply_collision_penalty(self, penalty_ticks: int = 200) -> None:
-        """満載帰還中以外なら、衝突ペナルティ（減速）を適用する"""
+    def apply_collision_penalty(self, penalty_ticks: int) -> None:
+        """満載帰還中以外なら、衝突ペナルティ（停止）を適用する"""
         if self.is_manual and self.carrying_trash_id is None:
             self.slowdown_ticks = penalty_ticks
 
