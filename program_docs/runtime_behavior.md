@@ -21,6 +21,8 @@
 - 回収後は基地へ戻り、ごみ搬入でスコア加算する
 - エネルギーが尽きても低速帰還モードで基地へ向かう
 - シミュレーション時間が半分（`steps/2`）経過すると、自動・手動問わずすべての Collector の移動速度が 3 倍になる
+- 基地で`enrgey`<`max_energy`の間は完全停止して充電する
+- 自動 Collector は、他のロボットと衝突しても停止ペナルティは受けないが、全体スコアの `collisions` カウントは増加する
 - `enable_manual_robot` が有効な場合、手動 Collector が1体追加される
 - 手動 Collector は WebSocket の `manual_move` action で WASD / 矢印キー入力に追従する
 - 手動 Collector は魚避けとロボット避けを行わず、衝突時は一定時間（`manual_penalty_ticks`）完全に停止するペナルティを受ける。ただし、ごみを回収して基地へ運搬中（満載状態）の場合はペナルティを免除される

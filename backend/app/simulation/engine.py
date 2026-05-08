@@ -477,7 +477,7 @@ class SimulationEngine:
                     if getattr(robot, "is_manual", False):
                         robot.apply_collision_penalty(self.config.manual_penalty_ticks)
                     if getattr(other, "is_manual", False):
-                        other.apply_collision_penalty(self.config.manual_penalty_ticks) 
+                        other.apply_collision_penalty(self.config.manual_penalty_ticks)
                     self.collisions += 1
                     self.current_events.append(
                         SimulationEvent(
