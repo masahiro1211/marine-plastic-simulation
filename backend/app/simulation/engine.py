@@ -64,6 +64,7 @@ class SimulationEngine:
         self.shared_targets: dict[str, SharedTarget] = {}
         self.current_events: list[SimulationEvent] = []
         self.stats_history: deque[HistoryEntry] = deque(maxlen=MAX_HISTORY)
+        self._recent_collision_pairs: dict[tuple[str, str], int] = {}
         self.delivered_trash = 0
         self.collisions = 0
         self.robot_fish_contacts = 0
@@ -76,6 +77,7 @@ class SimulationEngine:
         self.agents.clear()
         self.shared_targets.clear()
         self.current_events.clear()
+        self._recent_collision_pairs.clear()
         self.delivered_trash = 0
         self.collisions = 0
         self.robot_fish_contacts = 0
@@ -463,10 +465,19 @@ class SimulationEngine:
         for index, robot in enumerate(robots):
             for other in robots[index + 1 :]:
                 if robot.distance_to(other) <= self.config.collision_radius:
+                    pair = tuple(sorted([robot.id, other.id]))
+                    last_tick = self._recent_collision_pairs.get(pair, -10**9)
+                    
+                    # 前回の衝突からクールダウン期間が経過していなければスキップ
+                    if self.tick - last_tick < self.config.collision_cooldown_ticks:
+                        continue
+                        
+                    # 衝突したtickを記録
+                    self._recent_collision_pairs[pair] = self.tick
                     if getattr(robot, "is_manual", False):
-                        robot.apply_collision_penalty()
+                        robot.apply_collision_penalty(self.config.manual_penalty_ticks)
                     if getattr(other, "is_manual", False):
-                        other.apply_collision_penalty()
+                        other.apply_collision_penalty(self.config.manual_penalty_ticks)
                     self.collisions += 1
                     self.current_events.append(
                         SimulationEvent(
