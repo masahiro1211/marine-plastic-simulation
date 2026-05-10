@@ -103,20 +103,19 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#020817] text-slate-50 p-6">
+    <div className="min-h-screen bg-[#020817] text-slate-50 p-4">
       <div className="max-w-[1540px] mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-cyan-200">
-            Marine Cleanup Robot Simulation
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold tracking-tight text-cyan-200">
+            海洋清掃ロボット シミュレーション
           </h1>
-          <p className="text-slate-400 mt-2 max-w-3xl text-sm leading-6">
-            Scout robots discover drifting trash, collectors return it to the
-            base, while marine life keeps schooling, dodges passing robots, and
-            occasionally ingests trash that drifts within reach.
+          <p className="text-slate-400 mt-1 max-w-3xl text-sm leading-7">
+            スカウトロボットが海に漂うごみを見つけ、コレクターロボットがそれを基地まで運びます。
+            魚たちは群れで泳ぎながらロボットを避け、ときどき近くに流れてきたごみを食べてしまいます。
           </p>
         </div>
 
-        <div className="flex flex-col xl:flex-row gap-5 items-start">
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
           <ControlPanel
             connected={connected}
             config={config}
@@ -125,13 +124,21 @@ export default function App() {
             onDisconnect={disconnect}
             onReset={handleReset}
           />
-          <Canvas
-            agents={agents}
-            base={base}
-            width={config.width}
-            height={config.height}
+          <div className="flex-1 min-w-0 flex justify-center">
+            <Canvas
+              agents={agents}
+              base={base}
+              width={config.width}
+              height={config.height}
+            />
+          </div>
+          <StatsPanel
+            stats={stats}
+            score={score}
+            tick={tick}
+            phase={phase}
+            totalSteps={config.steps}
           />
-          <StatsPanel stats={stats} score={score} tick={tick} phase={phase} />
         </div>
       </div>
     </div>

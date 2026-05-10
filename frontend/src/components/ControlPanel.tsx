@@ -61,10 +61,6 @@ const FIELDS: Array<[NumericConfigKey, string]> = [
   ["steps", "Steps"],
   ["scout_count", "Scout Robots"],
   ["collector_count", "Collector Robots"],
-  ["marine_life_count", "Marine Life"],
-  ["initial_trash_count", "Initial Trash"],
-  ["flock_zoo_radius", "Flock Orientation Range"],
-  ["flock_zoa_radius", "Flock Attraction Range"],
 ];
 
 interface ControlPanelProps {
