@@ -10,6 +10,13 @@ type NumericConfigKey = {
 }[keyof SimulationConfig] &
   keyof SimulationConfig;
 
+type BoolConfigKey = {
+  [Key in keyof SimulationConfig]: SimulationConfig[Key] extends boolean
+    ? Key
+    : never;
+}[keyof SimulationConfig] &
+  keyof SimulationConfig;
+
 const DEFAULT_CONFIG: SimulationConfig = {
   width: 960,
   height: 640,
@@ -63,6 +70,10 @@ const FIELDS: Array<[NumericConfigKey, string]> = [
   ["collector_count", "Collector Robots"],
 ];
 
+const BOOL_FIELDS: Array<[BoolConfigKey, string]> = [
+  ["enable_manual_robot", "Manual Robot"],
+];
+
 interface ControlPanelProps {
   connected: boolean;
   config: SimulationConfig;
@@ -103,6 +114,10 @@ export default function ControlPanel({
     setConfig((prev) => ({ ...prev, [key]: Number(value) }));
   };
 
+  const handleToggle = (key: BoolConfigKey, checked: boolean) => {
+    setConfig((prev) => ({ ...prev, [key]: checked }));
+  };
+
   return (
     <div className="bg-slate-950/80 text-slate-100 p-4 rounded-2xl min-w-[220px] shadow-xl border border-cyan-900/50">
       <h3 className="text-base font-semibold mb-1">Mission Control</h3>
@@ -141,6 +156,17 @@ export default function ControlPanel({
               onChange={(event) => handleChange(key, event.target.value)}
               className="block w-full p-2 mt-1 rounded-lg border border-slate-700 bg-slate-900 text-white text-sm"
             />
+          </label>
+        ))}
+        {BOOL_FIELDS.map(([key, label]) => (
+          <label key={key} className="flex items-center text-xs">
+            <input
+              type="checkbox"
+              checked={config[key] ?? false}
+              onChange={(event) => handleToggle(key, event.target.checked)}
+              className="ml-2 rounded border-slate-700 bg-slate-900"
+            />
+            <span className="text-slate-300 ml-2">{label}</span>
           </label>
         ))}
       </div>
