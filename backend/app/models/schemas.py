@@ -52,6 +52,20 @@ class SimulationConfig(BaseModel):
         scout_levy_max_steps: Maximum straight-line steps per Lévy leg.
         scout_levy_mu: Lévy distribution exponent for step length sampling.
         scout_battery_enabled: Whether scouts consume energy and return to base.
+        panic_radius: Distance to a robot below which a fish enters panic mode.
+        panic_contagion_radius: Distance within which panic spreads between same-species fish.
+        panic_heading_noise: Per-fish random heading perturbation while panicking (radians).
+        panic_speed_factor: Speed multiplier applied while a fish is panicking.
+        predator_count: Number of predators to spawn.
+        predator_speed: Base cruise speed of each predator.
+        predator_chase_speed_factor: Speed multiplier applied while chasing prey.
+        predator_sensor_radius: Detection radius beyond which predators ignore prey.
+        predator_panic_radius: Distance to a predator below which a fish enters panic mode.
+        predator_cluster_min_size: Minimum cluster size before the predator switches from
+            nearest-fish targeting to centroid targeting.
+        predator_levy_min_steps: Minimum straight-line ticks per cruise leg.
+        predator_levy_max_steps: Maximum straight-line ticks per cruise leg.
+        predator_levy_mu: Lévy exponent for cruise leg length sampling.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -63,23 +77,23 @@ class SimulationConfig(BaseModel):
 
     scout_count: int = 2
     collector_count: int = 3
-    marine_life_count: int = 10
+    marine_life_count: int = 18
     initial_trash_count: int = 18
 
     scout_speed: float = 2.2
     collector_speed: float = 1.8
-    marine_life_speed: float = 1.6
+    marine_life_speed: float = 3.2
     trash_drift_speed: float = 0.35
 
     trash_weight: float = 1.0
     avoid_marine_life_weight: float = 1.15
-    avoid_robot_weight: float = 0.85
+    avoid_robot_weight: float = 2.5
     random_weight: float = 0.3
 
     scout_sensor_radius: float = 110
     collector_sensor_radius: float = 42
     collector_pickup_radius: float = 16
-    marine_life_avoid_radius: float = 90
+    marine_life_avoid_radius: float = 130
     collision_radius: float = 18
     base_radius: float = 48
 
@@ -101,6 +115,33 @@ class SimulationConfig(BaseModel):
     flock_cohesion_weight: float = 0.35
     flock_max_turn_rate: float = 0.35
     flock_noise: float = 0.08
+
+    wall_repulsion_radius: float = 60.0
+    wall_repulsion_weight: float = 2.0
+
+    habitat_drift_weight: float = 0.0
+
+    speed_evade_factor: float = 1.4
+    speed_zor_factor: float = 0.7
+    speed_adapt_rate: float = 0.1
+
+    inter_species_repulsion_radius: float = 80.0
+    inter_species_repulsion_weight: float = 2.5
+
+    panic_radius: float = 45.0
+    panic_contagion_radius: float = 60.0
+    panic_heading_noise: float = 0.8
+    panic_speed_factor: float = 2.2
+
+    predator_count: int = 1
+    predator_speed: float = 3.0
+    predator_chase_speed_factor: float = 1.4
+    predator_sensor_radius: float = 200.0
+    predator_panic_radius: float = 75.0
+    predator_cluster_min_size: int = 3
+    predator_levy_min_steps: int = 30
+    predator_levy_max_steps: int = 180
+    predator_levy_mu: float = 2.0
 
     sharing_mode: Literal["global", "local"] = "global"
     enable_manual_robot: bool = True
