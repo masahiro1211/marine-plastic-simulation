@@ -41,7 +41,7 @@ export default function App() {
   const lastDir = useRef({ dx: 0, dy: 0 });
 
   useEffect(() => {
-    if (!connected) return;
+    if (!connected || config.enable_manual_robot === false) return;
 
     const updateMovement = () => {
       let dx = 0;
@@ -87,7 +87,7 @@ export default function App() {
       keysPressed.current.clear();
       lastDir.current = { dx: 0, dy: 0 };
     };
-  }, [connected, manualMove]);
+  }, [connected, config.enable_manual_robot, manualMove]);
 
   /**
    * Reset the simulation through WebSocket when connected and through REST otherwise.
