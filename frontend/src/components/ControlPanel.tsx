@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SimulationConfig, SimulationPhase } from "../types";
 
 type NumericConfigKey = {
@@ -17,11 +17,11 @@ const DEFAULT_CONFIG: SimulationConfig = {
   tick_interval_ms: 50,
   scout_count: 2,
   collector_count: 3,
-  marine_life_count: 10,
+  marine_life_count: 18,
   initial_trash_count: 18,
   scout_speed: 2.2,
   collector_speed: 1.8,
-  marine_life_speed: 1.6,
+  marine_life_speed: 3.2,
   trash_drift_speed: 0.35,
   trash_weight: 1.0,
   avoid_marine_life_weight: 1.15,
@@ -61,10 +61,6 @@ const FIELDS: Array<[NumericConfigKey, string]> = [
   ["steps", "Steps"],
   ["scout_count", "Scout Robots"],
   ["collector_count", "Collector Robots"],
-  ["marine_life_count", "Marine Life"],
-  ["initial_trash_count", "Initial Trash"],
-  ["flock_zoo_radius", "Flock Orientation Range"],
-  ["flock_zoa_radius", "Flock Attraction Range"],
 ];
 
 interface ControlPanelProps {
@@ -92,9 +88,10 @@ export default function ControlPanel({
 }: ControlPanelProps) {
   const [config, setConfig] = useState<SimulationConfig>(DEFAULT_CONFIG);
 
+  const initialIncomingConfigRef = useRef(incomingConfig);
   useEffect(() => {
-    setConfig((prev) => ({ ...prev, ...incomingConfig }));
-  }, [incomingConfig]);
+    setConfig((prev) => ({ ...prev, ...initialIncomingConfigRef.current }));
+  }, []);
 
   /**
    * Update one numeric config field in local form state.

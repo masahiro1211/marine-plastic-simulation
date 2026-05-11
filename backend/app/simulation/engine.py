@@ -13,7 +13,7 @@ from app.models.schemas import (
     SimulationSnapshot,
     SimulationStats,
 )
-from app.simulation.agents import BaseAgent, Collector, MarineLife, Scout, Trash
+from app.simulation.agents import BaseAgent, Collector, MarineLife, Predator, Scout, Trash
 
 
 MAX_HISTORY = 500
@@ -119,8 +119,10 @@ class SimulationEngine:
                     self.config.max_energy,
                 )
             )
-        for _ in range(self.config.marine_life_count):
-            self._spawn_marine_life()
+        for i in range(self.config.marine_life_count):
+            self._spawn_marine_life(species_id=i % 3)
+        for _ in range(self.config.predator_count):
+            self._spawn_predator()
         for _ in range(self.config.initial_trash_count):
             self._spawn_trash()
 
@@ -134,13 +136,31 @@ class SimulationEngine:
             )
         )
 
-    def _spawn_marine_life(self) -> None:
-        """Spawn one marine life actor at a random valid position."""
+    def _spawn_predator(self) -> None:
+        """Spawn one predator at a random interior position."""
+        self.agents.append(
+            Predator(
+                random.uniform(60, self.config.width - 60),
+                random.uniform(60, self.config.height - 60),
+                self.config.predator_speed,
+            )
+        )
+
+    def _spawn_marine_life(self, species_id: int = 0) -> None:
+        """Spawn one marine life actor at a random position in the world.
+
+        All species spawn uniformly. Group separation emerges dynamically
+        from inter-species repulsion rather than fixed habitat zones.
+
+        Args:
+            species_id: Species group index (0, 1, or 2).
+        """
         self.agents.append(
             MarineLife(
                 random.uniform(30, self.config.width - 30),
                 random.uniform(20, self.config.height - 120),
                 self.config.marine_life_speed,
+                species_id=species_id,
             )
         )
 
@@ -188,8 +208,14 @@ class SimulationEngine:
             scout.update(self)
         for collector in self.collectors:
             collector.update(self)
-        for marine_life in self.marine_life:
-            marine_life.update(self)
+        for predator in self.predators:
+            predator.update(self)
+        marine_life_list = self.marine_life
+        prev_panic_map = {fish.id: fish.panic for fish in marine_life_list}
+        for fish in marine_life_list:
+            fish.panic = fish.compute_panic(self, self.config, prev_panic_map)
+        for fish in marine_life_list:
+            fish.update(self)
 
         self._resolve_base_interactions()
         self._resolve_collisions()
@@ -214,6 +240,11 @@ class SimulationEngine:
     def marine_life(self) -> list[MarineLife]:
         """Return all active marine life actors."""
         return [agent for agent in self.agents if isinstance(agent, MarineLife) and agent.alive]
+
+    @property
+    def predators(self) -> list[Predator]:
+        """Return all active predator actors."""
+        return [agent for agent in self.agents if isinstance(agent, Predator) and agent.alive]
 
     @property
     def trash_items(self) -> list[Trash]:
@@ -263,6 +294,19 @@ class SimulationEngine:
             Matching marine life actors.
         """
         return [life for life in self.marine_life if life.distance_to_point(x, y) <= radius]
+
+    def find_predators_near(self, x: float, y: float, radius: float) -> list[Predator]:
+        """Find active predators within a radius of a point.
+
+        Args:
+            x: Query horizontal position.
+            y: Query vertical position.
+            radius: Search radius.
+
+        Returns:
+            Matching predator actors.
+        """
+        return [pred for pred in self.predators if pred.distance_to_point(x, y) <= radius]
 
     def share_target(self, trash: Trash, reporter: Scout) -> None:
         """Publish a trash detection event for collectors.
