@@ -38,6 +38,17 @@ class SimulationConfig(BaseModel):
         low_energy_threshold: Threshold that triggers base return.
         trash_spawn_interval: Tick interval for spawning new trash.
         max_trash: Maximum trash agents allowed at once.
+        trash_source_profile: Preset for source-weighted trash generation.
+        trash_cluster_min: Minimum runtime trash cluster size.
+        trash_cluster_max: Maximum runtime trash cluster size.
+        current_x: Horizontal ocean current direction component.
+        current_y: Vertical ocean current direction component.
+        current_strength: Strength applied to trash from ocean current.
+        diffusion_strength: Random diffusion strength applied to trash.
+        convergence_x: Horizontal position of simplified accumulation zone.
+        convergence_y: Vertical position of simplified accumulation zone.
+        convergence_strength: Pull strength toward the accumulation zone.
+        source_outflow_strength: Push strength away from the selected source.
         stress_gain_per_robot: Stress added per nearby robot.
         stress_decay_per_tick: Stress decay when marine life is calm.
         stress_threshold: Stress level at which marine life is lost.
@@ -80,6 +91,17 @@ class SimulationConfig(BaseModel):
 
     trash_spawn_interval: int = 24
     max_trash: int = 30
+    trash_source_profile: Literal["legacy", "calm", "rain", "storm", "harbor"] = "calm"
+    trash_cluster_min: int = 1
+    trash_cluster_max: int = 3
+    current_x: float = 0.35
+    current_y: float = 0.08
+    current_strength: float = 0.08
+    diffusion_strength: float = 0.02
+    convergence_x: float | None = None
+    convergence_y: float | None = None
+    convergence_strength: float = 0.004
+    source_outflow_strength: float = 0.018
 
     stress_gain_per_robot: float = 0.85
     stress_decay_per_tick: float = 0.18

@@ -90,10 +90,31 @@ backend と frontend が同じ構造を前提にできるようにする。
 3. Epic C
 4. Epic D
 
-## 7. 今すぐ着手してよい最小単位
+## 7. Epic E: PR #13 後のゲーム性改善
+
+### 目的
+
+PR #13 まで merge した後、既存の魚・スカウト・ごみ回収ロボットの責務を変えずに、bug fix と安定化を最優先で進める。その後、ごみ生成、ゲーム性、学術的整合性を改善する。
+
+### タスク
+
+- PR #12 / #13 merge 後の bug fix と安定化 QA
+- 論文ベースの trash source / cluster / current / convergence 簡略モデルの導入
+- mission preset と end-of-run grade の導入
+- model assumptions と学術的な限界の文書化
+
+### 参照文書
+
+- `documents/02_analysis/POST_PR13_GAMEPLAY_IMPROVEMENT_PLAN.md`
+- `documents/02_analysis/CURRENT_STATE_GAP_ANALYSIS.md`
+- `documents/06_open_questions/OPEN_QUESTIONS.md`
+
+## 8. 今すぐ着手してよい最小単位
 
 - schema のドラフト更新
 - score / stats / event の型定義
 - config 名称移行案の作成
+- PR #12 / #13 merge 後の bug fix checklist 作成
+- trash scenario foundation の小さな設計 PR 作成
 
 これら以外は、`OPEN_QUESTIONS` の解消状況を見て進める。

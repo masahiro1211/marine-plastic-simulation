@@ -34,6 +34,17 @@ export interface SimulationConfig {
   low_energy_threshold: number;
   trash_spawn_interval: number;
   max_trash: number;
+  trash_source_profile: "legacy" | "calm" | "rain" | "storm" | "harbor";
+  trash_cluster_min: number;
+  trash_cluster_max: number;
+  current_x: number;
+  current_y: number;
+  current_strength: number;
+  diffusion_strength: number;
+  convergence_x?: number | null;
+  convergence_y?: number | null;
+  convergence_strength: number;
+  source_outflow_strength: number;
   stress_gain_per_robot: number;
   stress_decay_per_tick: number;
   stress_threshold: number;

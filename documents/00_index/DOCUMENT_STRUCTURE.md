@@ -8,12 +8,13 @@
 
 1. `documents/01_source_of_truth/IMPLEMENTATION_SOURCE_OF_TRUTH.md`
 2. `documents/02_analysis/CURRENT_STATE_GAP_ANALYSIS.md`
-3. `documents/03_readiness/IMPLEMENTATION_READINESS_CHECKLIST.md`
-4. `documents/04_delivery/DELIVERY_MILESTONES.md`
-5. `documents/00_index/IMPLEMENTATION_TASK_BREAKDOWN.md`
-6. `documents/05_reference/DOMAIN_MODEL.md`
-7. `documents/05_reference/API_CONTRACT_BASELINE.md`
-8. `documents/06_open_questions/OPEN_QUESTIONS.md`
+3. `documents/02_analysis/POST_PR13_GAMEPLAY_IMPROVEMENT_PLAN.md`
+4. `documents/03_readiness/IMPLEMENTATION_READINESS_CHECKLIST.md`
+5. `documents/04_delivery/DELIVERY_MILESTONES.md`
+6. `documents/00_index/IMPLEMENTATION_TASK_BREAKDOWN.md`
+7. `documents/05_reference/DOMAIN_MODEL.md`
+8. `documents/05_reference/API_CONTRACT_BASELINE.md`
+9. `documents/06_open_questions/OPEN_QUESTIONS.md`
 
 ## 3. 使い分け
 
@@ -24,6 +25,10 @@
 ### 今のコードと何がズレているか
 
 - `02_analysis`
+
+### PR #13 後に何を改善するか
+
+- `02_analysis/POST_PR13_GAMEPLAY_IMPROVEMENT_PLAN.md`
 
 ### もう実装を始めてよいか
 

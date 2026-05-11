@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import type { SimulationConfig, SimulationPhase } from "../types";
 
+type NumericConfigKey = {
+  [Key in keyof SimulationConfig]: SimulationConfig[Key] extends number
+    ? Key
+    : never;
+}[keyof SimulationConfig] &
+  keyof SimulationConfig;
+
 const DEFAULT_CONFIG: SimulationConfig = {
   width: 960,
   height: 640,
@@ -31,6 +38,17 @@ const DEFAULT_CONFIG: SimulationConfig = {
   low_energy_threshold: 18,
   trash_spawn_interval: 24,
   max_trash: 30,
+  trash_source_profile: "calm",
+  trash_cluster_min: 1,
+  trash_cluster_max: 3,
+  current_x: 0.35,
+  current_y: 0.08,
+  current_strength: 0.08,
+  diffusion_strength: 0.02,
+  convergence_x: null,
+  convergence_y: null,
+  convergence_strength: 0.004,
+  source_outflow_strength: 0.018,
   stress_gain_per_robot: 0.85,
   stress_decay_per_tick: 0.18,
   stress_threshold: 10,
@@ -38,7 +56,7 @@ const DEFAULT_CONFIG: SimulationConfig = {
   sharing_mode: "global",
 };
 
-const FIELDS: Array<[keyof SimulationConfig, string]> = [
+const FIELDS: Array<[NumericConfigKey, string]> = [
   ["steps", "Steps"],
   ["scout_count", "Scout Robots"],
   ["collector_count", "Collector Robots"],
@@ -81,7 +99,7 @@ export default function ControlPanel({
    * @param key Configuration key to change.
    * @param value Next raw input value.
    */
-  const handleChange = (key: keyof SimulationConfig, value: string) => {
+  const handleChange = (key: NumericConfigKey, value: string) => {
     setConfig((prev) => ({ ...prev, [key]: Number(value) }));
   };
 
