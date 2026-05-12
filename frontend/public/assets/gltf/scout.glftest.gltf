@@ -1,0 +1,19 @@
+{
+  "asset": { "version": "2.0", "generator": "marine-plastic-simulation dummy gltf" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "name": "ScoutRobot", "mesh": 0, "camera": 0 }],
+  "meshes": [{ "name": "ScoutRobotMesh", "primitives": [{ "mode": 4 }] }],
+  "cameras": [{ "name": "ScoutDebugCamera", "type": "perspective", "perspective": { "yfov": 0.7, "znear": 0.1 } }],
+  "animations": [{ "name": "idle" }, { "name": "scan" }, { "name": "move" }],
+  "extras": {
+    "mps": {
+      "scale": 1,
+      "animationClips": ["idle", "scan", "move"],
+      "primitives": [
+        { "kind": "polygon", "fill": "#38bdf8", "points": [[13,0],[-8,-7],[-4,0],[-8,7]] },
+        { "kind": "ellipse", "fill": "#e0f2fe", "x": 2, "y": 0, "radiusX": 3, "radiusY": 2 }
+      ]
+    }
+  }
+}

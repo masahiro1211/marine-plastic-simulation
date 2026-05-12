@@ -1,0 +1,19 @@
+{
+  "asset": { "version": "2.0", "generator": "marine-plastic-simulation dummy gltf" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "name": "BasePlatform", "mesh": 0, "camera": 0 }],
+  "meshes": [{ "name": "BasePlatformMesh", "primitives": [{ "mode": 4 }] }],
+  "cameras": [{ "name": "StageDebugCamera", "type": "orthographic", "orthographic": { "xmag": 180, "ymag": 86, "znear": 0.1, "zfar": 100 } }],
+  "animations": [{ "name": "idle" }],
+  "extras": {
+    "mps": {
+      "scale": 1,
+      "animationClips": ["idle"],
+      "primitives": [
+        { "kind": "rect", "fill": "#d4a373", "stroke": "#7f5539", "lineWidth": 2, "x": -70, "y": -18, "width": 140, "height": 30 },
+        { "kind": "rect", "fill": "#f1f5f9", "stroke": "#64748b", "lineWidth": 1, "x": -28, "y": -42, "width": 56, "height": 24 }
+      ]
+    }
+  }
+}

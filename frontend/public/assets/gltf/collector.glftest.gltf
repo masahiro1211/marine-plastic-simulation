@@ -1,0 +1,18 @@
+{
+  "asset": { "version": "2.0", "generator": "marine-plastic-simulation dummy gltf" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "name": "CollectorRobot", "mesh": 0 }],
+  "meshes": [{ "name": "CollectorRobotMesh", "primitives": [{ "mode": 4 }] }],
+  "animations": [{ "name": "idle" }, { "name": "move" }, { "name": "carry" }],
+  "extras": {
+    "mps": {
+      "scale": 1,
+      "animationClips": ["idle", "move", "carry"],
+      "primitives": [
+        { "kind": "rect", "fill": "#34d399", "stroke": "#064e3b", "lineWidth": 1, "x": -12, "y": -7, "width": 24, "height": 14 },
+        { "kind": "ellipse", "fill": "#d1fae5", "x": 6, "y": 0, "radiusX": 3, "radiusY": 3 }
+      ]
+    }
+  }
+}

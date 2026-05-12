@@ -1,0 +1,19 @@
+{
+  "asset": { "version": "2.0", "generator": "marine-plastic-simulation dummy gltf" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "name": "Predator", "mesh": 0 }],
+  "meshes": [{ "name": "PredatorMesh", "primitives": [{ "mode": 4 }] }],
+  "animations": [{ "name": "idle" }, { "name": "cruise" }, { "name": "chase" }],
+  "extras": {
+    "mps": {
+      "scale": 1,
+      "animationClips": ["idle", "cruise", "chase"],
+      "primitives": [
+        { "kind": "polygon", "fill": "#1f2937", "points": [[15,0],[-10,-8],[-5,0],[-10,8]] },
+        { "kind": "polygon", "fill": "#374151", "points": [[-3,-5],[-15,-11],[-10,-2]] },
+        { "kind": "ellipse", "fill": "#fecaca", "x": 7, "y": -2, "radiusX": 1.6, "radiusY": 1.6 }
+      ]
+    }
+  }
+}

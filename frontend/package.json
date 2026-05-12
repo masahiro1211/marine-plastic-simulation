@@ -20,7 +20,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:gltf-assets": "node scripts/validate-gltf-assets.js"
   },
   "browserslist": {
     "production": [

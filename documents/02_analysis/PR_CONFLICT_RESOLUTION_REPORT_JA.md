@@ -31,10 +31,19 @@
 - `frontend/src/types.ts`、`useSimulation.ts`、`ControlPanel.tsx` に発生源モデル用の設定を追加した。
 - `backend/tests/test_engine.py` に発生源モデルの回帰テストを追加した。
 
-## 確認予定
+## GLTF 対応の扱い
 
-- 競合マーカーが残っていないことを確認する。
-- `git diff --check` で空白エラーがないことを確認する。
-- backend の unittest/pytest を実行する。
-- frontend の typecheck/build を実行できる範囲で確認する。
-- 最終的に `ogawa` を push し、PR が `develop` に対して再確認できる状態にする。
+`gltf-asset-runtime` ブランチの GLTF ランタイムも `ogawa` に取り込んだ。`develop` 側で追加された `predator` が GLTF ブランチ作成後に増えていたため、既存の scout / collector / marine_life / trash に加えて predator 用の軽量 GLTF アセット、manifest 定義、検証対象を追加した。
+
+これにより、現在の `AgentType` 全体で GLTF アセットをロードでき、ロード失敗時は既存 renderer に fallback する構成になっている。
+
+## 確認結果
+
+- 競合マーカー確認: `rg -n "<<<<<<<|=======|>>>>>>>"` で残存なし。
+- 空白確認: `git diff --check` でエラーなし。
+- backend テスト: `backend/.venv/bin/python -m pytest tests` で 19 件成功。
+- frontend 型確認: `npm run typecheck` 成功。
+- GLTF アセット検証: `npm run test:gltf-assets` 成功。
+- frontend build: `BUILD_PATH=/tmp/marine-plastic-simulation-build npm run build` 成功。
+
+`frontend/build` は既存生成物が `nobody:nogroup` 所有で上書きできなかったため、検証では `BUILD_PATH` を `/tmp/marine-plastic-simulation-build` に変更して production build を実行した。ソースコード側の build 失敗ではなく、ローカル生成物ディレクトリの権限問題である。
