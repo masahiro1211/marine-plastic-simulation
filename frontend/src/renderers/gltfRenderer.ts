@@ -1,8 +1,37 @@
 import type { AgentState } from "../types";
 import type { LightweightGltfAsset, LightweightPrimitive } from "../assets/gltfTypes";
 
-function drawPrimitive(ctx: CanvasRenderingContext2D, primitive: LightweightPrimitive) {
-  ctx.fillStyle = primitive.fill;
+const MARINE_LIFE_SPECIES_COLORS: Record<number, string> = {
+  0: "#7dd3fc",
+  1: "#86efac",
+  2: "#fca5a5",
+};
+
+function getRuntimeFill(agent: AgentState, primitive: LightweightPrimitive) {
+  if (
+    agent.agent_type === "marine_life" &&
+    (primitive.fill === "#7dd3fc" ||
+      primitive.fill === "#86efac" ||
+      primitive.fill === "#fca5a5")
+  ) {
+    const speciesId = (agent.metadata?.species_id as number) ?? 0;
+    return MARINE_LIFE_SPECIES_COLORS[speciesId] ?? MARINE_LIFE_SPECIES_COLORS[0];
+  }
+
+  if (agent.agent_type === "predator" && agent.metadata?.mode === "chase") {
+    if (primitive.fill === "#1f2937") return "#7f1d1d";
+    if (primitive.fill === "#374151") return "#991b1b";
+  }
+
+  return primitive.fill;
+}
+
+function drawPrimitive(
+  ctx: CanvasRenderingContext2D,
+  primitive: LightweightPrimitive,
+  fill: string
+) {
+  ctx.fillStyle = fill;
   if (primitive.stroke) {
     ctx.strokeStyle = primitive.stroke;
     ctx.lineWidth = primitive.lineWidth ?? 1;
@@ -84,6 +113,24 @@ function applyClipTransform(
   }
 }
 
+function drawCollectorCarryIndicator(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  ctx.fillStyle = "#fbbf24";
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  ctx.arc(-3, 0, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#fef3c7";
+  ctx.beginPath();
+  ctx.arc(-4.2, -1.4, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawGltfAgent(
   ctx: CanvasRenderingContext2D,
   asset: LightweightGltfAsset,
@@ -97,7 +144,10 @@ export function drawGltfAgent(
   ctx.scale(scale, scale);
   applyClipTransform(ctx, asset, agent, frameTime);
   for (const primitive of primitives) {
-    drawPrimitive(ctx, primitive);
+    drawPrimitive(ctx, primitive, getRuntimeFill(agent, primitive));
+  }
+  if (agent.agent_type === "collector" && agent.metadata.carrying) {
+    drawCollectorCarryIndicator(ctx);
   }
   ctx.restore();
 }
@@ -118,7 +168,7 @@ export function drawGltfStageAsset(
   ctx.scale(width / 180, height / 86);
   ctx.scale(scale, scale);
   for (const primitive of primitives) {
-    drawPrimitive(ctx, primitive);
+    drawPrimitive(ctx, primitive, primitive.fill);
   }
   ctx.restore();
 }
