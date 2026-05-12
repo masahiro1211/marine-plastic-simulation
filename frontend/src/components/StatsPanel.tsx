@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ScoreState, SimulationPhase, SimulationStats } from "../types";
 
 interface StatsPanelProps {
@@ -38,7 +38,13 @@ interface DeltaItem {
  * @param props Component props.
  * @returns Floating-delta layer UI.
  */
-function FloatingDeltas({ items }: { items: DeltaItem[] }) {
+function FloatingDeltas({
+  items,
+  onDone,
+}: {
+  items: DeltaItem[];
+  onDone: (id: number) => void;
+}) {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
       <style>{`
@@ -51,6 +57,7 @@ function FloatingDeltas({ items }: { items: DeltaItem[] }) {
       {items.map((it) => (
         <div
           key={it.id}
+          onAnimationEnd={() => onDone(it.id)}
           className="absolute left-1/2 top-3 font-bold text-2xl tabular-nums"
           style={{
             color: it.value > 0 ? "#1a9a7e" : "#d05a4f",
@@ -143,11 +150,12 @@ export default function StatsPanel({
     if (!diff) return;
     const id = ++idRef.current;
     setDeltas((xs) => [...xs, { id, value: diff }]);
-    const t = window.setTimeout(() => {
-      setDeltas((xs) => xs.filter((x) => x.id !== id));
-    }, 1500);
-    return () => window.clearTimeout(t);
   }, [totalScore]);
+
+  const removeDelta = useCallback(
+    (id: number) => setDeltas((xs) => xs.filter((x) => x.id !== id)),
+    []
+  );
 
   // Rank: 5-tier progression based on accumulated score.
   const filled = Math.max(0, Math.min(5, Math.floor(totalScore / RANK_STEP)));
@@ -161,7 +169,7 @@ export default function StatsPanel({
     <div className="text-[#1a3744] w-[256px] shrink-0 flex flex-col gap-3">
       {/* Score + rank */}
       <div className={`${card} p-5 relative overflow-hidden`}>
-        <FloatingDeltas items={deltas} />
+        <FloatingDeltas items={deltas} onDone={removeDelta} />
         <div className="text-[10px] tracking-[0.18em] font-bold text-[#7c95a0]">SCORE</div>
         <div className="text-[60px] font-bold text-[#0e6a7b] leading-none mt-1.5 tabular-nums tracking-[-0.03em]">
           {totalScore.toLocaleString()}

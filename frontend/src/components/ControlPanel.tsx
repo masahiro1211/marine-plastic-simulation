@@ -90,7 +90,7 @@ interface ControlPanelProps {
   phase: SimulationPhase;
   onConnect: () => void;
   onDisconnect: () => void;
-  onReset: (nextConfig: SimulationConfig) => void;
+  onReset: (nextConfig: SimulationConfig) => void | Promise<void>;
 }
 
 /**
@@ -239,7 +239,10 @@ export default function ControlPanel({
       {/* Actions */}
       {!connected ? (
         <button
-          onClick={onConnect}
+          onClick={async () => {
+            await onReset(config);
+            onConnect();
+          }}
           className="block w-full mt-4 py-3.5 rounded-2xl border-0 text-white text-sm font-bold tracking-wide cursor-pointer shadow-[0_8px_20px_-8px_rgba(224,138,91,0.55)]"
           style={{
             background:

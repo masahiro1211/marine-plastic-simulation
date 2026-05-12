@@ -96,12 +96,12 @@ export default function App() {
    *
    * @param nextConfig New configuration to apply.
    */
-  const handleReset = (nextConfig: typeof config) => {
+  const handleReset = async (nextConfig: typeof config): Promise<void> => {
     if (connected) {
       reset(nextConfig);
       return;
     }
-    void resetViaApi(nextConfig);
+    await resetViaApi(nextConfig);
   };
 
   const totalSteps = config.steps;
