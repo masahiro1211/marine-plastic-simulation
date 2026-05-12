@@ -8,6 +8,8 @@ import type { AgentState, BaseState } from "../types";
 export type CameraPreset = "angle" | "top";
 
 useGLTF.preload("/models/orca.glb");
+useGLTF.preload("/models/collector.glb");
+useGLTF.preload("/models/fish.glb");
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -73,25 +75,48 @@ function ScoutMesh({ agent }: { agent: AgentState }) {
   );
 }
 
+// モデルの forward 方向に応じてヨーを補正する。Blender の +Y forward なら 0。
+const COLLECTOR_YAW_OFFSET = 0;
+const COLLECTOR_BASE_SCALE = 9;
+const COLLECTOR_Y_OFFSET = 0;
+
 function CollectorMesh({ agent }: { agent: AgentState }) {
   const ref = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF("/models/collector.glb");
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions, names } = useAnimations(animations, cloned);
+
+  useEffect(() => {
+    const first = names[0];
+    if (!first) return;
+    const action = actions[first];
+    if (!action) return;
+    action.reset().fadeIn(0.2).play();
+    return () => {
+      action.fadeOut(0.2);
+    };
+  }, [actions, names]);
+
   useFrame(() => {
     const g = ref.current;
     if (!g) return;
     const { vx, vy } = agent;
     if (vx * vx + vy * vy > 1e-3) {
-      g.rotation.y = Math.atan2(vx, vy);
+      const target = Math.atan2(vx, vy) + COLLECTOR_YAW_OFFSET;
+      const cur = g.rotation.y;
+      let diff = target - cur;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      g.rotation.y = cur + diff * 0.2;
     }
   });
+
   const carrying = Boolean(agent.metadata?.carrying);
   return (
     <group ref={ref}>
-      <mesh>
-        <boxGeometry args={[20, 8, 12]} />
-        <meshStandardMaterial color="#34d399" emissive="#047857" emissiveIntensity={0.3} />
-      </mesh>
+      <primitive object={cloned} scale={COLLECTOR_BASE_SCALE} position={[0, COLLECTOR_Y_OFFSET, 0]} />
       {carrying && (
-        <mesh position={[0, 8, 0]}>
+        <mesh position={[0, 14, 0]}>
           <sphereGeometry args={[3, 12, 12]} />
           <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.6} />
         </mesh>
@@ -100,31 +125,46 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
   );
 }
 
+// モデルの forward 方向に応じてヨーを補正する。
+const FISH_YAW_OFFSET = Math.PI;
+const FISH_BASE_SCALE = 5;
+
 function FishMesh({ agent }: { agent: AgentState }) {
   const ref = useRef<THREE.Group>(null);
-  const speciesId = (agent.metadata?.species_id as number) ?? 0;
-  const colors = ["#7dd3fc", "#86efac", "#fca5a5"];
-  const color = colors[speciesId] ?? colors[0];
+  const { scene, animations } = useGLTF("/models/fish.glb");
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions, names } = useAnimations(animations, cloned);
+
+  useEffect(() => {
+    const first = names[0];
+    if (!first) return;
+    const action = actions[first];
+    if (!action) return;
+    action.reset().fadeIn(0.2).play();
+    return () => {
+      action.fadeOut(0.2);
+    };
+  }, [actions, names]);
 
   useFrame(() => {
     const g = ref.current;
     if (!g) return;
     const { vx, vy } = agent;
     if (vx * vx + vy * vy > 1e-3) {
-      g.rotation.y = Math.atan2(vx, vy);
+      const target = Math.atan2(vx, vy) + FISH_YAW_OFFSET;
+      const cur = g.rotation.y;
+      let diff = target - cur;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      g.rotation.y = cur + diff * 0.2;
     }
   });
 
+  const scale = (agent.alive ? 1 : 0.4) * FISH_BASE_SCALE;
+
   return (
-    <group ref={ref} scale={agent.alive ? 1 : 0.4}>
-      <mesh rotation={[0, Math.PI / 2, 0]}>
-        <sphereGeometry args={[6, 12, 8]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      <mesh position={[-7, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <coneGeometry args={[4, 6, 4]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
+    <group ref={ref} scale={scale}>
+      <primitive object={cloned} />
     </group>
   );
 }
