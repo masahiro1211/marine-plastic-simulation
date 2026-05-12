@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF, useAnimations } from "@react-three/drei";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { useGLTF, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { AgentState, AgentType, BaseState } from "../types";
+import type { AgentState, BaseState } from "../types";
 
-export type CameraPreset = "angle" | "top" | "side" | "low";
+export type CameraPreset = "angle" | "top";
 
 useGLTF.preload("/models/orca.glb");
 
@@ -130,9 +129,23 @@ function FishMesh({ agent }: { agent: AgentState }) {
   );
 }
 
-function TrashMesh() {
+function hashAgentId(id: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < id.length; i++) {
+    h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  }
+  return h >>> 0;
+}
+
+function TrashMesh({ id }: { id: string }) {
+  const rotation = useMemo<[number, number, number]>(() => {
+    const h = hashAgentId(id);
+    const r1 = (h & 0xffff) / 0xffff;
+    const r2 = ((h >>> 16) & 0xffff) / 0xffff;
+    return [r1 * Math.PI, r2 * Math.PI, 0];
+  }, [id]);
   return (
-    <mesh rotation={[Math.random() * Math.PI, Math.random() * Math.PI, 0]}>
+    <mesh rotation={rotation}>
       <boxGeometry args={[6, 6, 6]} />
       <meshStandardMaterial color="#fb923c" roughness={0.9} />
     </mesh>
@@ -150,41 +163,60 @@ function AgentNode({ agent, cx, cz }: { agent: AgentState; cx: number; cz: numbe
       {agent.agent_type === "scout" && <ScoutMesh agent={agent} />}
       {agent.agent_type === "collector" && <CollectorMesh agent={agent} />}
       {agent.agent_type === "marine_life" && <FishMesh agent={agent} />}
-      {agent.agent_type === "trash" && <TrashMesh />}
+      {agent.agent_type === "trash" && <TrashMesh id={agent.id} />}
     </group>
   );
 }
 
+const PRESET_DIRECTIONS: Record<CameraPreset, [number, number, number]> = {
+  angle: [0, 0.85, 0.7],
+  top: [0, 1, 0.001],
+};
+
+const PRESET_MARGIN: Record<CameraPreset, number> = {
+  angle: 1.15,
+  top: 1.05,
+};
+
+function computeFitDistance(
+  width: number,
+  height: number,
+  fovDeg: number,
+  aspect: number,
+  margin = 0.9,
+): number {
+  const fovV = (fovDeg * Math.PI) / 180;
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * Math.max(aspect, 0.001));
+  const distV = height * 0.5 / Math.tan(fovV / 2);
+  const distH = width * 0.5 / Math.tan(fovH / 2);
+  return Math.max(distV, distH) * margin;
+}
+
 function CameraPresetController({
   preset,
-  controlsRef,
   width,
   height,
+  margin,
 }: {
   preset: CameraPreset;
-  controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
   width: number;
   height: number;
+  margin: number;
 }) {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   useEffect(() => {
-    const m = Math.max(width, height);
-    const positions: Record<CameraPreset, [number, number, number]> = {
-      angle: [0, m * 0.9, height * 0.7],
-      top: [0, m * 1.3, 0.01],
-      side: [m * 0.9, height * 0.25, 0],
-      low: [0, height * 0.25, m * 0.9],
-    };
-    const [x, y, z] = positions[preset];
-    camera.position.set(x, y, z);
+    const persp = camera as THREE.PerspectiveCamera;
+    const aspect = size.width / Math.max(size.height, 1);
+    const dist = computeFitDistance(width, height, persp.fov ?? 45, aspect, margin);
+    const dir = PRESET_DIRECTIONS[preset];
+    const dirLen = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+    const nx = dir[0] / dirLen;
+    const ny = dir[1] / dirLen;
+    const nz = dir[2] / dirLen;
+    camera.position.set(nx * dist, ny * dist, nz * dist);
     camera.lookAt(0, 0, 0);
-    camera.updateProjectionMatrix();
-    const controls = controlsRef.current;
-    if (controls) {
-      controls.target.set(0, 0, 0);
-      controls.update();
-    }
-  }, [preset, camera, controlsRef, width, height]);
+    persp.updateProjectionMatrix();
+  }, [preset, camera, width, height, margin, size.width, size.height]);
   return null;
 }
 
@@ -205,30 +237,34 @@ export default function Canvas3D({
 }: Canvas3DProps) {
   const cx = width / 2;
   const cz = height / 2;
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
-
-  const visibleAgents = useMemo(
-    () => agents.filter((a): a is AgentState & { agent_type: AgentType } => Boolean(a.agent_type)),
-    [agents]
+  const sceneSize = Math.max(width, height);
+  const margin = PRESET_MARGIN[cameraPreset];
+  const aspect = width / height;
+  const defaultDist = useMemo(
+    () => computeFitDistance(width, height, 45, aspect, margin),
+    [width, height, aspect, margin]
   );
 
   return (
     <div
-      style={{ width, height }}
+      style={{
+        width: "100%",
+        maxWidth: width,
+        aspectRatio: `${width} / ${height}`,
+      }}
       className="border border-cyan-950 rounded-2xl shadow-2xl overflow-hidden bg-[#031624] relative"
     >
       <ThreeCanvas
-        camera={{ position: [0, Math.max(width, height) * 0.9, height * 0.7], fov: 45 }}
+        camera={{ position: [0, defaultDist * 0.85, defaultDist * 0.7], fov: 45, near: 1, far: sceneSize * 20 }}
         dpr={[1, 2]}
       >
         <CameraPresetController
           preset={cameraPreset}
-          controlsRef={controlsRef}
           width={width}
           height={height}
+          margin={margin}
         />
         <color attach="background" args={["#031624"]} />
-        <fog attach="fog" args={["#031624", height * 0.8, height * 3]} />
         <ambientLight intensity={0.55} />
         <directionalLight position={[200, 400, 200]} intensity={1.1} castShadow />
         <directionalLight position={[-200, 200, -100]} intensity={0.4} color="#5eead4" />
@@ -241,6 +277,11 @@ export default function Canvas3D({
             roughness={0.7}
           />
         </mesh>
+
+        <gridHelper
+          args={[Math.max(width, height), 20, "#1e3a5f", "#0f2a4a"]}
+          position={[0, 0.1, 0]}
+        />
 
         {base && (
           <group position={[base.x - cx, 0, base.y - cz]}>
@@ -259,23 +300,11 @@ export default function Canvas3D({
           </group>
         )}
 
-        {visibleAgents.map((a) => (
+        {agents.map((a) => (
           <AgentNode key={a.id} agent={a} cx={cx} cz={cz} />
         ))}
 
-        <OrbitControls
-          ref={controlsRef as React.Ref<OrbitControlsImpl>}
-          enableDamping
-          dampingFactor={0.08}
-          maxPolarAngle={Math.PI / 2.05}
-          minDistance={150}
-          maxDistance={2500}
-          enablePan
-        />
       </ThreeCanvas>
-      <div className="absolute bottom-2 left-3 text-[10px] text-cyan-200/70 pointer-events-none select-none">
-        左ドラッグ: 回転 / 右ドラッグ: 移動 / ホイール: ズーム
-      </div>
     </div>
   );
 }

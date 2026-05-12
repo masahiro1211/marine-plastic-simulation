@@ -135,8 +135,6 @@ export default function App() {
                     [
                       { id: "angle", label: "斜め" },
                       { id: "top", label: "俯瞰" },
-                      { id: "side", label: "真横" },
-                      { id: "low", label: "低角度" },
                     ] as { id: CameraPreset; label: string }[]
                   ).map((p) => (
                     <button
