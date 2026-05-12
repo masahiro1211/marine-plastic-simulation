@@ -26,7 +26,7 @@
   "collision_radius": 18,
   "max_energy": 100,
   "trash_spawn_interval": 24,
-  "marine_life_respawn_delay": 90
+  "fish_eat_radius": 14
 }
 ```
 
@@ -75,7 +75,9 @@
   "marine_life": 10,
   "trash_remaining": 18,
   "active_robots": 5,
-  "delivered_trash": 4
+  "delivered_trash": 4,
+  "robot_fish_contacts": 3,
+  "fish_ate_trash": 1
 }
 ```
 
@@ -86,7 +88,6 @@
   "total": 120.0,
   "trash_delivered": 12,
   "collisions": 1,
-  "marine_life_stress": 8.5,
   "energy_remaining": 210.0
 }
 ```
@@ -97,7 +98,5 @@
 - `trash_picked`
 - `trash_delivered`
 - `collision_detected`
-- `marine_life_lost`
-- `marine_life_respawned`
 - `battery_depleted`
 - `battery_recovered`

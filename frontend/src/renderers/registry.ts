@@ -1,6 +1,7 @@
 import type { AgentType, Renderer } from "../types";
 import collectorRenderer from "./collectorRenderer";
 import marineLifeRenderer from "./marineLifeRenderer";
+import predatorRenderer from "./predatorRenderer";
 import scoutRenderer from "./scoutRenderer";
 import trashRenderer from "./trashRenderer";
 
@@ -12,6 +13,7 @@ const renderers: Record<AgentType, Renderer> = {
   collector: collectorRenderer,
   marine_life: marineLifeRenderer,
   trash: trashRenderer,
+  predator: predatorRenderer,
 };
 
 const fallbackRenderer: Renderer = {

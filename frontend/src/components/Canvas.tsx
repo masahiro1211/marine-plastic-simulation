@@ -80,7 +80,7 @@ export default function Canvas({
       ref={canvasRef}
       width={width}
       height={height}
-      className="border border-cyan-950 rounded-2xl shadow-2xl"
+      className="border border-cyan-950 rounded-2xl shadow-2xl max-w-full h-auto"
     />
   );
 }

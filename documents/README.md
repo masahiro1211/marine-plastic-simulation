@@ -11,8 +11,6 @@
 4. `documents/04_delivery/DELIVERY_MILESTONES.md`
 5. `documents/06_open_questions/OPEN_QUESTIONS.md`
 
-PR #13 まで merge した後の bug fix / 安定化を最優先にした改善計画は、`documents/02_analysis/POST_PR13_GAMEPLAY_IMPROVEMENT_PLAN.md` を参照する。
-
 ## フォルダ構成
 
 - `00_index/`: 読み順とタスク束ね

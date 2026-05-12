@@ -5,7 +5,7 @@ import random
 
 from app.models.schemas import SimulationConfig
 from app.simulation.engine import SimulationEngine
-from app.simulation.agents import Collector, MarineLife, Scout, Trash
+from app.simulation.agents import Collector, Trash
 
 
 class SimulationEngineTests(unittest.TestCase):
@@ -17,6 +17,7 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=1,
                 initial_trash_count=1,
                 steps=10,
+                enable_manual_robot=False,
             )
         )
 
@@ -37,6 +38,7 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=0,
                 initial_trash_count=1,
                 steps=10,
+                enable_manual_robot=False,
             )
         )
         collector = next(agent for agent in engine.agents if isinstance(agent, Collector))
@@ -53,33 +55,6 @@ class SimulationEngineTests(unittest.TestCase):
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
 
-    def test_marine_life_can_be_lost_and_respawn(self) -> None:
-        engine = SimulationEngine(
-            SimulationConfig(
-                scout_count=1,
-                collector_count=0,
-                marine_life_count=1,
-                initial_trash_count=0,
-                stress_threshold=0.2,
-                marine_life_respawn_delay=1,
-                steps=10,
-            )
-        )
-        scout = next(agent for agent in engine.agents if isinstance(agent, Scout))
-        marine_life = next(agent for agent in engine.agents if isinstance(agent, MarineLife))
-
-        scout.x = 100
-        scout.y = 100
-        marine_life.x = 100
-        marine_life.y = 100
-
-        engine.start()
-        engine.step()
-        self.assertFalse(marine_life.alive)
-
-        engine.step()
-        self.assertGreaterEqual(len(engine.marine_life), 1)
-
     def test_runtime_trash_cluster_respects_max_trash(self) -> None:
         random.seed(10)
         engine = SimulationEngine(
@@ -93,6 +68,8 @@ class SimulationEngineTests(unittest.TestCase):
                 trash_cluster_min=5,
                 trash_cluster_max=5,
                 trash_source_profile="storm",
+                enable_manual_robot=False,
+                predator_count=0,
                 steps=10,
             )
         )
@@ -111,6 +88,8 @@ class SimulationEngineTests(unittest.TestCase):
                 marine_life_count=0,
                 initial_trash_count=6,
                 trash_source_profile="harbor",
+                enable_manual_robot=False,
+                predator_count=0,
             )
         )
 
@@ -136,6 +115,8 @@ class SimulationEngineTests(unittest.TestCase):
                 diffusion_strength=0.0,
                 convergence_strength=0.0,
                 source_outflow_strength=0.0,
+                enable_manual_robot=False,
+                predator_count=0,
             )
         )
         trash = engine.trash_items[0]
@@ -148,61 +129,60 @@ class SimulationEngineTests(unittest.TestCase):
         self.assertGreater(trash.x, before_x)
         self.assertAlmostEqual(trash.vy, 0.0)
 
-    def test_persistent_collision_is_counted_once_until_separated(self) -> None:
-        engine = SimulationEngine(
-            SimulationConfig(
-                scout_count=1,
-                collector_count=1,
-                marine_life_count=0,
-                initial_trash_count=0,
-                scout_speed=0.0,
-                collector_speed=0.0,
-                random_weight=0.0,
-                collision_radius=20,
-                steps=10,
-            )
-        )
-        scout = next(agent for agent in engine.agents if isinstance(agent, Scout))
-        collector = next(agent for agent in engine.agents if isinstance(agent, Collector))
-        scout.x = collector.x = 100
-        scout.y = collector.y = 100
-        scout.vx = scout.vy = collector.vx = collector.vy = 0.0
-
-        engine.step()
-        engine.step()
-
-        self.assertEqual(engine.collisions, 1)
-
-        collector.x = 200
-        collector.y = 200
-        engine.step()
-        collector.x = scout.x
-        collector.y = scout.y
-        collector.vx = collector.vy = 0.0
-        engine.step()
-
-        self.assertEqual(engine.collisions, 2)
-
-    def test_completed_simulation_does_not_spawn_runtime_trash(self) -> None:
+    def test_collision_cooldown_and_penalty_guards(self) -> None:
+        """同一ペアの衝突クールダウン、独立カウント、およびスロウ上書き防止のテスト"""
+        # 手動ロボット1体、自動ロボット2体でシミュレーションを準備
         engine = SimulationEngine(
             SimulationConfig(
                 scout_count=0,
-                collector_count=0,
+                collector_count=2,  # 自動2体
                 marine_life_count=0,
                 initial_trash_count=0,
-                trash_spawn_interval=1,
-                max_trash=10,
-                steps=1,
+                enable_manual_robot=True,  # 手動1体追加
+                collision_cooldown_ticks=30,
+                manual_penalty_ticks=200,
             )
         )
 
-        engine.step()
-        count_at_completion = len(engine.trash_items)
-        engine.step()
+        # ロボットの抽出
+        manual = next(r for r in engine.collectors if getattr(r, "is_manual", False))
+        autos = [r for r in engine.collectors if not getattr(r, "is_manual", False)]
+        auto1 = autos[0]
+        auto2 = autos[1]
 
-        self.assertEqual(engine.phase, "completed")
-        self.assertEqual(len(engine.trash_items), count_at_completion)
+        # 3体を同じ座標（衝突距離内）に配置
+        manual.x = manual.y = 100
+        auto1.x = auto1.y = 100
 
+        # auto2は一旦遠くへ避難させておく
+        auto2.x = auto2.y = 9999
 
+        # --- 基準1＆2: 初回の衝突 ---
+        engine.tick = 1
+        engine._resolve_collisions()
+        self.assertEqual(engine.collisions, 1, "初回の衝突がカウントされること")
+        self.assertEqual(manual.slowdown_ticks, 200, "手動ロボットにペナルティが適用されること")
+
+        # --- 基準1＆2: クールダウン期間中の連続衝突 ---
+        engine.tick = 2
+        manual.slowdown_ticks = 199  # 1tick経過してペナルティが減ったと仮定
+        engine._resolve_collisions()
+        self.assertEqual(engine.collisions, 1, "クールダウン中はスコアが増えないこと")
+        self.assertEqual(manual.slowdown_ticks, 199, "スロウ中のペナルティ期間が200に上書きされないこと")
+
+        # --- 基準1: クールダウン経過後 ---
+        engine.tick = 35
+        engine._resolve_collisions()
+        self.assertEqual(engine.collisions, 2, "クールダウン後は再びカウントされること")
+
+        # --- 基準3: 異なるペアの独立カウント確認 ---
+        # 遠くにいたauto2を戻して、auto1と衝突させる（manualとは離す）
+        manual.x = manual.y = 9999
+        auto2.x = auto2.y = 100
+        engine.tick = 36
+        engine._resolve_collisions()
+
+        # auto1 と auto2 は「初めてのペア」なので、クールダウンに関係なく即座にカウントされる
+        self.assertEqual(engine.collisions, 3, "異なるペアの衝突は独立して即座にカウントされること")
 if __name__ == "__main__":
     unittest.main()

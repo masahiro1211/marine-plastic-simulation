@@ -1,7 +1,7 @@
 /** Lifecycle phases emitted by the backend runtime. */
 export type SimulationPhase = "idle" | "running" | "stopped" | "completed";
 /** Agent kinds currently supported by the frontend renderer registry. */
-export type AgentType = "scout" | "collector" | "marine_life" | "trash";
+export type AgentType = "scout" | "collector" | "marine_life" | "trash" | "predator";
 
 /** Runtime configuration shared between frontend and backend. */
 export interface SimulationConfig {
@@ -45,11 +45,42 @@ export interface SimulationConfig {
   convergence_y?: number | null;
   convergence_strength: number;
   source_outflow_strength: number;
-  stress_gain_per_robot: number;
-  stress_decay_per_tick: number;
-  stress_threshold: number;
-  marine_life_respawn_delay: number;
+  fish_eat_radius?: number;
+  flock_zor_radius?: number;
+  flock_zoo_radius?: number;
+  flock_zoa_radius?: number;
+  flock_alignment_weight?: number;
+  flock_cohesion_weight?: number;
+  flock_max_turn_rate?: number;
+  flock_noise?: number;
+  wall_repulsion_radius?: number;
+  wall_repulsion_weight?: number;
+  habitat_drift_weight?: number;
+  speed_evade_factor?: number;
+  speed_zor_factor?: number;
+  speed_adapt_rate?: number;
+  inter_species_repulsion_radius?: number;
+  inter_species_repulsion_weight?: number;
+  panic_radius?: number;
+  panic_contagion_radius?: number;
+  panic_heading_noise?: number;
+  panic_speed_factor?: number;
+  predator_count?: number;
+  predator_speed?: number;
+  predator_chase_speed_factor?: number;
+  predator_sensor_radius?: number;
+  predator_panic_radius?: number;
+  predator_cluster_min_size?: number;
+  predator_levy_min_steps?: number;
+  predator_levy_max_steps?: number;
+  predator_levy_mu?: number;
   sharing_mode: "global" | "local";
+  enable_manual_robot: boolean;
+  scout_search_duration: number;
+  scout_levy_min_steps: number;
+  scout_levy_max_steps: number;
+  scout_levy_mu: number;
+  scout_battery_enabled: boolean;
 }
 
 /** Serialized base position and radius. */
@@ -67,6 +98,8 @@ export interface SimulationStats {
   trash_remaining: number;
   active_robots: number;
   delivered_trash: number;
+  robot_fish_contacts: number;
+  fish_ate_trash: number;
 }
 
 /** Score breakdown for one snapshot tick. */
@@ -74,7 +107,6 @@ export interface ScoreState {
   total: number;
   trash_delivered: number;
   collisions: number;
-  marine_life_stress: number;
   energy_remaining: number;
 }
 
@@ -120,7 +152,6 @@ export interface HistoryEntry {
   tick: number;
   delivered_trash: number;
   collisions: number;
-  marine_life_stress: number;
   energy_remaining: number;
   total_score: number;
   trash_remaining: number;

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import random
 import math
+import random
 from collections import deque
 from dataclasses import dataclass
 
@@ -14,7 +14,7 @@ from app.models.schemas import (
     SimulationSnapshot,
     SimulationStats,
 )
-from app.simulation.agents import BaseAgent, Collector, MarineLife, Scout, Trash
+from app.simulation.agents import BaseAgent, Collector, MarineLife, Predator, Scout, Trash
 
 
 MAX_HISTORY = 500
@@ -41,15 +41,7 @@ class SharedTarget:
 
 @dataclass(frozen=True)
 class TrashSource:
-    """Weighted trash input source used by the simplified source-to-transport model.
-
-    Attributes:
-        source_id: Stable source identifier.
-        x: Horizontal source center.
-        y: Vertical source center.
-        weight: Relative spawn probability.
-        spread_radius: Spawn dispersion around the source center.
-    """
+    """Weighted trash input source used by the simplified source-to-transport model."""
 
     source_id: str
     x: float
@@ -84,10 +76,11 @@ class SimulationEngine:
         self.shared_targets: dict[str, SharedTarget] = {}
         self.current_events: list[SimulationEvent] = []
         self.stats_history: deque[HistoryEntry] = deque(maxlen=MAX_HISTORY)
+        self._recent_collision_pairs: dict[tuple[str, str], int] = {}
         self.delivered_trash = 0
         self.collisions = 0
-        self._active_collision_pairs: set[tuple[str, str]] = set()
-        self.pending_marine_life_respawns: list[int] = []
+        self.robot_fish_contacts = 0
+        self.fish_ate_trash = 0
         self._init_agents()
 
     def _init_agents(self) -> None:
@@ -96,10 +89,11 @@ class SimulationEngine:
         self.agents.clear()
         self.shared_targets.clear()
         self.current_events.clear()
-        self.pending_marine_life_respawns.clear()
+        self._recent_collision_pairs.clear()
         self.delivered_trash = 0
         self.collisions = 0
-        self._active_collision_pairs.clear()
+        self.robot_fish_contacts = 0
+        self.fish_ate_trash = 0
         self.base = BaseState(
             x=self.config.width / 2,
             y=max(self.config.height - 36, 0),
@@ -115,6 +109,17 @@ class SimulationEngine:
                     self.config.max_energy,
                 )
             )
+        if self.config.enable_manual_robot:
+            manual = Collector(
+                self.config.width / 2,
+                self.config.height / 2,
+                self.config.collector_speed,
+                self.config.collector_sensor_radius,
+                self.config.collector_pickup_radius,
+                self.config.max_energy,
+            )
+            manual.is_manual = True
+            self.agents.append(manual)
         for _ in range(self.config.collector_count):
             self.agents.append(
                 Collector(
@@ -126,18 +131,15 @@ class SimulationEngine:
                     self.config.max_energy,
                 )
             )
-        for _ in range(self.config.marine_life_count):
-            self._spawn_marine_life()
+        for i in range(self.config.marine_life_count):
+            self._spawn_marine_life(species_id=i % 3)
+        for _ in range(self.config.predator_count):
+            self._spawn_predator()
         for _ in range(self.config.initial_trash_count):
             self._spawn_trash_from_source()
 
     def _spawn_trash(self, source: TrashSource | None = None) -> None:
-        """Spawn one trash actor at a valid source-aware position.
-
-        Args:
-            source: Optional weighted source. When omitted, a uniform legacy
-                position is used.
-        """
+        """Spawn one trash actor at a valid source-aware position."""
         if source is None:
             x = random.uniform(30, self.config.width - 30)
             y = random.uniform(20, self.config.height - 120)
@@ -172,13 +174,31 @@ class SimulationEngine:
             return
         self._spawn_trash(self._select_trash_source())
 
-    def _spawn_marine_life(self) -> None:
-        """Spawn one marine life actor at a random valid position."""
+    def _spawn_predator(self) -> None:
+        """Spawn one predator at a random interior position."""
+        self.agents.append(
+            Predator(
+                random.uniform(60, self.config.width - 60),
+                random.uniform(60, self.config.height - 60),
+                self.config.predator_speed,
+            )
+        )
+
+    def _spawn_marine_life(self, species_id: int = 0) -> None:
+        """Spawn one marine life actor at a random position in the world.
+
+        All species spawn uniformly. Group separation emerges dynamically
+        from inter-species repulsion rather than fixed habitat zones.
+
+        Args:
+            species_id: Species group index (0, 1, or 2).
+        """
         self.agents.append(
             MarineLife(
                 random.uniform(30, self.config.width - 30),
                 random.uniform(20, self.config.height - 120),
                 self.config.marine_life_speed,
+                species_id=species_id,
             )
         )
 
@@ -219,7 +239,6 @@ class SimulationEngine:
         self.current_events = []
 
         self._spawn_runtime_trash()
-        self._respawn_marine_life_if_due()
 
         for trash in self.trash_items:
             trash.update(self)
@@ -227,8 +246,14 @@ class SimulationEngine:
             scout.update(self)
         for collector in self.collectors:
             collector.update(self)
-        for marine_life in self.marine_life:
-            marine_life.update(self)
+        for predator in self.predators:
+            predator.update(self)
+        marine_life_list = self.marine_life
+        prev_panic_map = {fish.id: fish.panic for fish in marine_life_list}
+        for fish in marine_life_list:
+            fish.panic = fish.compute_panic(self, self.config, prev_panic_map)
+        for fish in marine_life_list:
+            fish.update(self)
 
         self._resolve_base_interactions()
         self._resolve_collisions()
@@ -253,6 +278,11 @@ class SimulationEngine:
     def marine_life(self) -> list[MarineLife]:
         """Return all active marine life actors."""
         return [agent for agent in self.agents if isinstance(agent, MarineLife) and agent.alive]
+
+    @property
+    def predators(self) -> list[Predator]:
+        """Return all active predator actors."""
+        return [agent for agent in self.agents if isinstance(agent, Predator) and agent.alive]
 
     @property
     def trash_items(self) -> list[Trash]:
@@ -290,15 +320,36 @@ class SimulationEngine:
         robots = self.scouts + self.collectors
         return [robot for robot in robots if robot.distance_to_point(x, y) <= radius]
 
-    def _trash_sources(self) -> list[TrashSource]:
-        """Build source presets for the current world and profile.
+    def find_marine_life_near(self, x: float, y: float, radius: float) -> list[MarineLife]:
+        """Find active marine life within a radius of a point.
+
+        Args:
+            x: Query horizontal position.
+            y: Query vertical position.
+            radius: Search radius.
 
         Returns:
-            Weighted trash source definitions.
+            Matching marine life actors.
         """
+        return [life for life in self.marine_life if life.distance_to_point(x, y) <= radius]
+
+    def find_predators_near(self, x: float, y: float, radius: float) -> list[Predator]:
+        """Find active predators within a radius of a point.
+
+        Args:
+            x: Query horizontal position.
+            y: Query vertical position.
+            radius: Search radius.
+
+        Returns:
+            Matching predator actors.
+        """
+        return [pred for pred in self.predators if pred.distance_to_point(x, y) <= radius]
+
+    def _trash_sources(self) -> list[TrashSource]:
+        """Build source presets for the current world and profile."""
         width = self.config.width
         height = self.config.height
-        profile = self.config.trash_source_profile
         weights_by_profile = {
             "calm": {
                 "river_mouth": 2.0,
@@ -325,44 +376,19 @@ class SimulationEngine:
                 "offshore": 0.5,
             },
         }
-        weights = weights_by_profile.get(profile, weights_by_profile["calm"])
+        weights = weights_by_profile.get(
+            self.config.trash_source_profile,
+            weights_by_profile["calm"],
+        )
         return [
-            TrashSource(
-                "river_mouth",
-                width * 0.18,
-                height * 0.20,
-                weights["river_mouth"],
-                48,
-            ),
-            TrashSource(
-                "coastal_city",
-                width * 0.82,
-                height * 0.34,
-                weights["coastal_city"],
-                64,
-            ),
-            TrashSource(
-                "harbor",
-                width * 0.50,
-                max(height - 110, 30),
-                weights["harbor"],
-                42,
-            ),
-            TrashSource(
-                "offshore",
-                width * 0.50,
-                26,
-                weights["offshore"],
-                120,
-            ),
+            TrashSource("river_mouth", width * 0.18, height * 0.20, weights["river_mouth"], 48),
+            TrashSource("coastal_city", width * 0.82, height * 0.34, weights["coastal_city"], 64),
+            TrashSource("harbor", width * 0.50, max(height - 110, 30), weights["harbor"], 42),
+            TrashSource("offshore", width * 0.50, 26, weights["offshore"], 120),
         ]
 
     def _select_trash_source(self) -> TrashSource:
-        """Select a trash source by configured source weights.
-
-        Returns:
-            Selected source definition.
-        """
+        """Select a trash source by configured source weights."""
         sources = self._trash_sources()
         total = sum(max(source.weight, 0.0) for source in sources)
         if total <= 0:
@@ -376,11 +402,7 @@ class SimulationEngine:
         return sources[-1]
 
     def _runtime_trash_cluster_size(self) -> int:
-        """Return runtime trash cluster size for the current profile.
-
-        Returns:
-            Cluster size clamped to a valid configured range.
-        """
+        """Return runtime trash cluster size for the current profile."""
         lower = max(1, self.config.trash_cluster_min)
         upper = max(lower, self.config.trash_cluster_max)
         profile_bonus = {
@@ -393,11 +415,7 @@ class SimulationEngine:
         return random.randint(lower, upper) + profile_bonus
 
     def trash_current_vector(self) -> tuple[float, float]:
-        """Return global current velocity contribution for trash.
-
-        Returns:
-            Horizontal and vertical current components.
-        """
+        """Return global current velocity contribution for trash."""
         norm = math.hypot(self.config.current_x, self.config.current_y)
         if norm == 0:
             return (0.0, 0.0)
@@ -410,14 +428,7 @@ class SimulationEngine:
         )
 
     def trash_source_outflow(self, trash: Trash) -> tuple[float, float]:
-        """Return weak outflow away from the trash source.
-
-        Args:
-            trash: Trash particle being transported.
-
-        Returns:
-            Horizontal and vertical outflow components.
-        """
+        """Return weak outflow away from the trash source."""
         dx = trash.x - trash.source_x
         dy = trash.y - trash.source_y
         norm = math.hypot(dx, dy)
@@ -427,14 +438,7 @@ class SimulationEngine:
         return (dx / norm * strength, dy / norm * strength)
 
     def trash_convergence_pull(self, trash: Trash) -> tuple[float, float]:
-        """Return weak pull toward a simplified accumulation zone.
-
-        Args:
-            trash: Trash particle being transported.
-
-        Returns:
-            Horizontal and vertical convergence components.
-        """
+        """Return weak pull toward a simplified accumulation zone."""
         target_x = self.config.convergence_x
         target_y = self.config.convergence_y
         if target_x is None:
@@ -590,41 +594,19 @@ class SimulationEngine:
                     )
                 )
 
-    def mark_marine_life_lost(self, agent: MarineLife) -> None:
-        """Deactivate stressed marine life and schedule respawn.
+    def fish_eats_trash(self, fish: MarineLife, trash: Trash) -> None:
+        """Deactivate trash ingested by a marine life actor.
 
         Args:
-            agent: Marine life actor to mark as lost.
+            fish: Marine life actor performing the ingestion.
+            trash: Trash actor being removed from the world.
         """
-        if not agent.alive:
+        if not trash.alive:
             return
-        agent.alive = False
-        agent.status = "lost"
-        self.pending_marine_life_respawns.append(self.tick + self.config.marine_life_respawn_delay)
-        self.current_events.append(
-            SimulationEvent(
-                event_type="marine_life_lost",
-                actor_id=agent.id,
-                tick=self.tick,
-                payload={"stress": round(agent.stress, 2)},
-            )
-        )
-
-    def _respawn_marine_life_if_due(self) -> None:
-        """Respawn marine life actors whose delay has elapsed."""
-        remaining_due = []
-        for due_tick in self.pending_marine_life_respawns:
-            if due_tick <= self.tick:
-                self._spawn_marine_life()
-                self.current_events.append(
-                    SimulationEvent(
-                        event_type="marine_life_respawned",
-                        tick=self.tick,
-                    )
-                )
-            else:
-                remaining_due.append(due_tick)
-        self.pending_marine_life_respawns = remaining_due
+        trash.alive = False
+        self.shared_targets.pop(trash.id, None)
+        self.fish_ate_trash += 1
+        fish.ate_trash_count += 1
 
     def _spawn_runtime_trash(self) -> None:
         """Spawn periodic runtime trash when configuration allows it."""
@@ -672,27 +654,33 @@ class SimulationEngine:
                 )
 
     def _resolve_collisions(self) -> None:
-        """Detect new robot collisions and avoid counting persistent overlaps."""
+        """Detect robot collisions and emit collision events."""
         robots = self.scouts + self.collectors
-        current_pairs: set[tuple[str, str]] = set()
         for index, robot in enumerate(robots):
             for other in robots[index + 1 :]:
-                pair = tuple(sorted((robot.id, other.id)))
-                if robot.distance_to(other) > self.config.collision_radius:
-                    continue
-                current_pairs.add(pair)
-                if pair in self._active_collision_pairs:
-                    continue
-                self.collisions += 1
-                self.current_events.append(
-                    SimulationEvent(
-                        event_type="collision_detected",
-                        actor_id=robot.id,
-                        target_id=other.id,
-                        tick=self.tick,
+                if robot.distance_to(other) <= self.config.collision_radius:
+                    pair = tuple(sorted([robot.id, other.id]))
+                    last_tick = self._recent_collision_pairs.get(pair, -10**9)
+
+                    # 前回の衝突からクールダウン期間が経過していなければスキップ
+                    if self.tick - last_tick < self.config.collision_cooldown_ticks:
+                        continue
+
+                    # 衝突したtickを記録
+                    self._recent_collision_pairs[pair] = self.tick
+                    if getattr(robot, "is_manual", False):
+                        robot.apply_collision_penalty(self.config.manual_penalty_ticks)
+                    if getattr(other, "is_manual", False):
+                        other.apply_collision_penalty(self.config.manual_penalty_ticks)
+                    self.collisions += 1
+                    self.current_events.append(
+                        SimulationEvent(
+                            event_type="collision_detected",
+                            actor_id=robot.id,
+                            target_id=other.id,
+                            tick=self.tick,
+                        )
                     )
-                )
-        self._active_collision_pairs = current_pairs
 
     def _cleanup_shared_targets(self) -> None:
         """Drop shared targets that no longer correspond to active trash."""
@@ -716,6 +704,8 @@ class SimulationEngine:
             trash_remaining=len(self.trash_items),
             active_robots=sum(1 for robot in self.scouts + self.collectors if robot.energy > 0),
             delivered_trash=self.delivered_trash,
+            robot_fish_contacts=self.robot_fish_contacts,
+            fish_ate_trash=self.fish_ate_trash,
         )
 
     def _current_score(self) -> ScoreState:
@@ -725,11 +715,9 @@ class SimulationEngine:
             Current score state.
         """
         energy_remaining = round(sum(robot.energy for robot in self.scouts + self.collectors), 2)
-        marine_stress = round(sum(agent.stress for agent in self.marine_life), 2)
         total = round(
             self.delivered_trash * 12
             - self.collisions * 2
-            - marine_stress * 1.5
             + energy_remaining * 0.05,
             2,
         )
@@ -737,7 +725,6 @@ class SimulationEngine:
             total=total,
             trash_delivered=self.delivered_trash,
             collisions=self.collisions,
-            marine_life_stress=marine_stress,
             energy_remaining=energy_remaining,
         )
 
@@ -750,7 +737,6 @@ class SimulationEngine:
                 tick=self.tick,
                 delivered_trash=score.trash_delivered,
                 collisions=score.collisions,
-                marine_life_stress=score.marine_life_stress,
                 energy_remaining=score.energy_remaining,
                 total_score=score.total,
                 trash_remaining=stats.trash_remaining,
