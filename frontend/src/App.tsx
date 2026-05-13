@@ -32,6 +32,7 @@ export default function App() {
     score,
     config,
     base,
+    discoveredTrashIds,
     tick,
     phase,
     connected,
@@ -246,6 +247,7 @@ export default function App() {
                 <Canvas3D
                   agents={agents}
                   base={base}
+                  discoveredTrashIds={discoveredTrashIds}
                   width={config.width}
                   height={config.height}
                   cameraPreset={cameraPreset}
