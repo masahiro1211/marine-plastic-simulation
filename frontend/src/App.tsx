@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Canvas from "./components/Canvas";
+import Canvas3D, { type CameraPreset } from "./components/Canvas3D";
 import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
 import useSimulation from "./hooks/useSimulation";
@@ -41,6 +42,8 @@ export default function App() {
 
   const keysPressed = useRef(new Set<string>());
   const lastDir = useRef({ dx: 0, dy: 0 });
+  const [view, setView] = useState<"2d" | "3d">("3d");
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("angle");
 
   useEffect(() => {
     if (!connected || config.enable_manual_robot === false) return;
@@ -188,13 +191,70 @@ export default function App() {
             onDisconnect={disconnect}
             onReset={handleReset}
           />
-          <div className="flex-1 min-w-0 flex justify-center">
-            <Canvas
-              agents={agents}
-              base={base}
-              width={config.width}
-              height={config.height}
-            />
+          <div className="flex-1 min-w-0 flex flex-col items-center gap-2">
+            <div className="flex flex-wrap gap-2 self-end items-center">
+              {view === "3d" && (
+                <div className="flex gap-1 mr-2">
+                  {(
+                    [
+                      { id: "angle", label: "斜め" },
+                      { id: "top", label: "俯瞰" },
+                    ] as { id: CameraPreset; label: string }[]
+                  ).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setCameraPreset(p.id)}
+                      className={`px-2 py-1 rounded-md text-xs font-medium border ${
+                        cameraPreset === p.id
+                          ? "bg-cyan-500 text-slate-900 border-cyan-300"
+                          : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setView("2d")}
+                className={`px-3 py-1 rounded-md text-xs font-medium border ${
+                  view === "2d"
+                    ? "bg-cyan-500 text-slate-900 border-cyan-300"
+                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                }`}
+              >
+                2D
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("3d")}
+                className={`px-3 py-1 rounded-md text-xs font-medium border ${
+                  view === "3d"
+                    ? "bg-cyan-500 text-slate-900 border-cyan-300"
+                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700"
+                }`}
+              >
+                3D
+              </button>
+            </div>
+            {view === "3d" ? (
+              <Canvas3D
+                agents={agents}
+                base={base}
+                width={config.width}
+                height={config.height}
+                cameraPreset={cameraPreset}
+              />
+            ) : (
+              <Canvas
+                agents={agents}
+                base={base}
+                width={config.width}
+                height={config.height}
+              />
+            )}
           </div>
           <StatsPanel
             stats={stats}
