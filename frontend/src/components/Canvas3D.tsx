@@ -8,6 +8,13 @@ import type { AgentState, BaseState } from "../types";
 export type CameraPreset = "angle" | "top";
 
 useGLTF.preload("/models/orca.glb");
+useGLTF.preload("/models/collector.glb");
+useGLTF.preload("/models/fish.glb");
+useGLTF.preload("/models/can.glb");
+useGLTF.preload("/models/plastic_bottle.glb");
+
+const CAN_SCALE = 140;
+const BOTTLE_SCALE = 70;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -73,25 +80,48 @@ function ScoutMesh({ agent }: { agent: AgentState }) {
   );
 }
 
+// モデルの forward 方向に応じてヨーを補正する。Blender の +Y forward なら 0。
+const COLLECTOR_YAW_OFFSET = 0;
+const COLLECTOR_BASE_SCALE = 9;
+const COLLECTOR_Y_OFFSET = 0;
+
 function CollectorMesh({ agent }: { agent: AgentState }) {
   const ref = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF("/models/collector.glb");
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions, names } = useAnimations(animations, cloned);
+
+  useEffect(() => {
+    const first = names[0];
+    if (!first) return;
+    const action = actions[first];
+    if (!action) return;
+    action.reset().fadeIn(0.2).play();
+    return () => {
+      action.fadeOut(0.2);
+    };
+  }, [actions, names]);
+
   useFrame(() => {
     const g = ref.current;
     if (!g) return;
     const { vx, vy } = agent;
     if (vx * vx + vy * vy > 1e-3) {
-      g.rotation.y = Math.atan2(vx, vy);
+      const target = Math.atan2(vx, vy) + COLLECTOR_YAW_OFFSET;
+      const cur = g.rotation.y;
+      let diff = target - cur;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      g.rotation.y = cur + diff * 0.2;
     }
   });
+
   const carrying = Boolean(agent.metadata?.carrying);
   return (
     <group ref={ref}>
-      <mesh>
-        <boxGeometry args={[20, 8, 12]} />
-        <meshStandardMaterial color="#34d399" emissive="#047857" emissiveIntensity={0.3} />
-      </mesh>
+      <primitive object={cloned} scale={COLLECTOR_BASE_SCALE} position={[0, COLLECTOR_Y_OFFSET, 0]} />
       {carrying && (
-        <mesh position={[0, 8, 0]}>
+        <mesh position={[0, 14, 0]}>
           <sphereGeometry args={[3, 12, 12]} />
           <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.6} />
         </mesh>
@@ -100,31 +130,46 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
   );
 }
 
+// モデルの forward 方向に応じてヨーを補正する。
+const FISH_YAW_OFFSET = Math.PI;
+const FISH_BASE_SCALE = 5;
+
 function FishMesh({ agent }: { agent: AgentState }) {
   const ref = useRef<THREE.Group>(null);
-  const speciesId = (agent.metadata?.species_id as number) ?? 0;
-  const colors = ["#7dd3fc", "#86efac", "#fca5a5"];
-  const color = colors[speciesId] ?? colors[0];
+  const { scene, animations } = useGLTF("/models/fish.glb");
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions, names } = useAnimations(animations, cloned);
+
+  useEffect(() => {
+    const first = names[0];
+    if (!first) return;
+    const action = actions[first];
+    if (!action) return;
+    action.reset().fadeIn(0.2).play();
+    return () => {
+      action.fadeOut(0.2);
+    };
+  }, [actions, names]);
 
   useFrame(() => {
     const g = ref.current;
     if (!g) return;
     const { vx, vy } = agent;
     if (vx * vx + vy * vy > 1e-3) {
-      g.rotation.y = Math.atan2(vx, vy);
+      const target = Math.atan2(vx, vy) + FISH_YAW_OFFSET;
+      const cur = g.rotation.y;
+      let diff = target - cur;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      g.rotation.y = cur + diff * 0.2;
     }
   });
 
+  const scale = (agent.alive ? 1 : 0.4) * FISH_BASE_SCALE;
+
   return (
-    <group ref={ref} scale={agent.alive ? 1 : 0.4}>
-      <mesh rotation={[0, Math.PI / 2, 0]}>
-        <sphereGeometry args={[6, 12, 8]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-      <mesh position={[-7, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-        <coneGeometry args={[4, 6, 4]} />
-        <meshStandardMaterial color={color} />
-      </mesh>
+    <group ref={ref} scale={scale}>
+      <primitive object={cloned} />
     </group>
   );
 }
@@ -137,22 +182,39 @@ function hashAgentId(id: string): number {
   return h >>> 0;
 }
 
-function TrashMesh({ id }: { id: string }) {
-  const rotation = useMemo<[number, number, number]>(() => {
-    const h = hashAgentId(id);
-    const r1 = (h & 0xffff) / 0xffff;
-    const r2 = ((h >>> 16) & 0xffff) / 0xffff;
-    return [r1 * Math.PI, r2 * Math.PI, 0];
-  }, [id]);
+function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
+  const canGltf = useGLTF("/models/can.glb");
+  const bottleGltf = useGLTF("/models/plastic_bottle.glb");
+  const h = hashAgentId(id);
+  const useCan = (h & 1) === 0;
+  const sourceScene = useCan ? canGltf.scene : bottleGltf.scene;
+  const scale = useCan ? CAN_SCALE : BOTTLE_SCALE;
+  const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
+  const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
   return (
-    <mesh rotation={rotation}>
-      <boxGeometry args={[6, 6, 6]} />
-      <meshStandardMaterial color="#fb923c" roughness={0.9} />
-    </mesh>
+    <group>
+      <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
+      {discovered && (
+        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[14, 18, 48]} />
+          <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
   );
 }
 
-function AgentNode({ agent, cx, cz }: { agent: AgentState; cx: number; cz: number }) {
+function AgentNode({
+  agent,
+  cx,
+  cz,
+  discovered,
+}: {
+  agent: AgentState;
+  cx: number;
+  cz: number;
+  discovered: boolean;
+}) {
   const wx = agent.x - cx;
   const wz = agent.y - cz;
   const y = agent.agent_type === "predator" ? 14 : 8;
@@ -163,7 +225,7 @@ function AgentNode({ agent, cx, cz }: { agent: AgentState; cx: number; cz: numbe
       {agent.agent_type === "scout" && <ScoutMesh agent={agent} />}
       {agent.agent_type === "collector" && <CollectorMesh agent={agent} />}
       {agent.agent_type === "marine_life" && <FishMesh agent={agent} />}
-      {agent.agent_type === "trash" && <TrashMesh id={agent.id} />}
+      {agent.agent_type === "trash" && <TrashMesh id={agent.id} discovered={discovered} />}
     </group>
   );
 }
@@ -223,6 +285,7 @@ function CameraPresetController({
 interface Canvas3DProps {
   agents: AgentState[];
   base: BaseState;
+  discoveredTrashIds?: string[];
   width?: number;
   height?: number;
   cameraPreset?: CameraPreset;
@@ -231,10 +294,15 @@ interface Canvas3DProps {
 export default function Canvas3D({
   agents,
   base,
+  discoveredTrashIds,
   width = 960,
   height = 640,
   cameraPreset = "angle",
 }: Canvas3DProps) {
+  const discoveredSet = useMemo(
+    () => new Set(discoveredTrashIds ?? []),
+    [discoveredTrashIds]
+  );
   const cx = width / 2;
   const cz = height / 2;
   const sceneSize = Math.max(width, height);
@@ -252,7 +320,7 @@ export default function Canvas3D({
         maxWidth: width,
         aspectRatio: `${width} / ${height}`,
       }}
-      className="border border-cyan-950 rounded-2xl shadow-2xl overflow-hidden bg-[#031624] relative"
+      className="border border-cyan-950 rounded-2xl shadow-2xl overflow-hidden bg-[#0c4a72] relative"
     >
       <ThreeCanvas
         camera={{ position: [0, defaultDist * 0.85, defaultDist * 0.7], fov: 45, near: 1, far: sceneSize * 20 }}
@@ -264,15 +332,15 @@ export default function Canvas3D({
           height={height}
           margin={margin}
         />
-        <color attach="background" args={["#031624"]} />
-        <ambientLight intensity={0.55} />
-        <directionalLight position={[200, 400, 200]} intensity={1.1} castShadow />
-        <directionalLight position={[-200, 200, -100]} intensity={0.4} color="#5eead4" />
+        <color attach="background" args={["#0c4a72"]} />
+        <ambientLight intensity={0.85} />
+        <directionalLight position={[200, 400, 200]} intensity={1.3} castShadow />
+        <directionalLight position={[-200, 200, -100]} intensity={0.55} color="#5eead4" />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[width, height]} />
           <meshStandardMaterial
-            color="#0b3a5a"
+            color="#1a5e8a"
             metalness={0.15}
             roughness={0.7}
           />
@@ -301,7 +369,13 @@ export default function Canvas3D({
         )}
 
         {agents.map((a) => (
-          <AgentNode key={a.id} agent={a} cx={cx} cz={cz} />
+          <AgentNode
+            key={a.id}
+            agent={a}
+            cx={cx}
+            cz={cz}
+            discovered={a.agent_type === "trash" && discoveredSet.has(a.id)}
+          />
         ))}
 
       </ThreeCanvas>
