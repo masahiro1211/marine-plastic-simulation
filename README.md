@@ -8,7 +8,7 @@ Scout がごみを見つけ、Collector が回収して基地へ搬入し、Mari
 | Layer | Tech |
 |---|---|
 | Backend | Python 3.12 / FastAPI / WebSocket |
-| Frontend | React 19 / TypeScript / Tailwind CSS / Canvas API |
+| Frontend | React 19 / TypeScript / Vite / Tailwind CSS / Canvas API |
 | Infra | Docker / Docker Compose |
 | Verification | unittest / GitHub Actions |
 
@@ -67,6 +67,7 @@ python -m unittest discover -s tests -v
 ```bash
 cd frontend
 npm run typecheck
+npm run test:gltf-assets
 npm run build
 ```
 
@@ -115,8 +116,6 @@ program_docs/                            # 詳細仕様
 ## Current Verification
 
 - Backend unit tests: pass
-- Frontend production build: pass
-- Dockerfiles: added `.dockerignore` and kept Docker-first execution path
-
-この実行環境では Docker daemon / Compose plugin 制約により実ビルド確認までは行えていません。  
-その代わり、CI に Docker Compose build を追加しています。
+- Frontend typecheck / GLTF fixture validation / production build: pass
+- Frontend production dependency audit: 0 vulnerabilities
+- Docker Compose frontend build and container startup: pass

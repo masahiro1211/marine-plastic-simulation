@@ -76,6 +76,8 @@ export interface SimulationConfig {
   predator_levy_mu?: number;
   sharing_mode: "global" | "local";
   enable_manual_robot: boolean;
+  manual_penalty_ticks?: number;
+  collision_cooldown_ticks?: number;
   scout_search_duration: number;
   scout_levy_min_steps: number;
   scout_levy_max_steps: number;
