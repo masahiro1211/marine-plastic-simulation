@@ -109,7 +109,6 @@ export default function Canvas({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [camera, setCamera] = useState<CameraState>({ x: 0, y: 0, zoom: 1 });
-  const [frameTime, setFrameTime] = useState(0);
   const [agentAssets, setAgentAssets] = useState<
     Partial<Record<AgentType, LoadedGltfAsset>>
   >({});
@@ -171,51 +170,50 @@ export default function Canvas({
   useEffect(() => {
     let animationFrame = 0;
 
-    const tick = (timestamp: number) => {
-      setFrameTime(timestamp);
-      animationFrame = requestAnimationFrame(tick);
-    };
+    const draw = (timestamp: number) => {
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!ctx) {
+        animationFrame = requestAnimationFrame(draw);
+        return;
+      }
 
-    animationFrame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animationFrame);
-  }, []);
-
-  useEffect(() => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-    ctx.save();
-    ctx.translate(width / 2, height / 2);
-    ctx.scale(camera.zoom, camera.zoom);
-    ctx.translate(-width / 2 + camera.x, -height / 2 + camera.y);
-
-    drawBase(ctx, base, width, height, stageImageMap, stageGltfMap);
-
-    for (const agent of agents) {
-      const renderer = getRenderer(agent.agent_type);
-      const asset = agentAssets[agent.agent_type];
-      const angle = Math.atan2(agent.vy || 0, agent.vx || 1);
-
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, width, height);
       ctx.save();
-      ctx.translate(agent.x, agent.y);
-      ctx.rotate(angle);
-      if (asset) {
-        drawGltfAgent(ctx, asset.gltf, agent, frameTime);
-      } else {
-        ctx.fillStyle = renderer.color;
-        renderer.draw(ctx, renderer.size, agent);
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(camera.zoom, camera.zoom);
+      ctx.translate(-width / 2 + camera.x, -height / 2 + camera.y);
+
+      drawBase(ctx, base, width, height, stageImageMap, stageGltfMap);
+
+      for (const agent of agents) {
+        const renderer = getRenderer(agent.agent_type);
+        const asset = agentAssets[agent.agent_type];
+        const angle = Math.atan2(agent.vy || 0, agent.vx || 1);
+
+        ctx.save();
+        ctx.translate(agent.x, agent.y);
+        ctx.rotate(angle);
+        if (asset) {
+          drawGltfAgent(ctx, asset.gltf, agent, timestamp);
+        } else {
+          ctx.fillStyle = renderer.color;
+          renderer.draw(ctx, renderer.size, agent);
+        }
+        ctx.restore();
       }
       ctx.restore();
-    }
-    ctx.restore();
+
+      animationFrame = requestAnimationFrame(draw);
+    };
+
+    animationFrame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animationFrame);
   }, [
     agents,
     agentAssets,
     base,
     camera,
-    frameTime,
     height,
     stageGltfMap,
     stageImageMap,

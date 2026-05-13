@@ -47,6 +47,7 @@ python -m unittest discover -s tests -v
 ```bash
 cd frontend
 npm run typecheck
+npm run test:gltf-assets
 npm run build
 ```
 

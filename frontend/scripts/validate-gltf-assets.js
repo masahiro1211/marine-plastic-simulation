@@ -8,7 +8,7 @@ const manifest = {
   agents: [
     {
       type: "scout",
-      path: "/assets/gltf/scout.glftest.gltf",
+      path: "/assets/gltf/fixtures/scout.glftest.gltf",
       clips: ["idle", "scan", "move"],
       maxBytes: 4096,
       maxNodes: 8,
@@ -16,7 +16,7 @@ const manifest = {
     },
     {
       type: "collector",
-      path: "/assets/gltf/collector.glftest.gltf",
+      path: "/assets/gltf/fixtures/collector.glftest.gltf",
       clips: ["idle", "move", "carry"],
       maxBytes: 4096,
       maxNodes: 8,
@@ -24,7 +24,7 @@ const manifest = {
     },
     {
       type: "marine_life",
-      path: "/assets/gltf/marine-life.glftest.gltf",
+      path: "/assets/gltf/fixtures/marine-life.glftest.gltf",
       clips: ["idle", "swim", "stress"],
       maxBytes: 4096,
       maxNodes: 8,
@@ -32,7 +32,7 @@ const manifest = {
     },
     {
       type: "trash",
-      path: "/assets/gltf/trash.glftest.gltf",
+      path: "/assets/gltf/fixtures/trash.glftest.gltf",
       clips: ["idle", "drift"],
       maxBytes: 4096,
       maxNodes: 8,
@@ -40,7 +40,7 @@ const manifest = {
     },
     {
       type: "predator",
-      path: "/assets/gltf/predator.glftest.gltf",
+      path: "/assets/gltf/fixtures/predator.glftest.gltf",
       clips: ["idle", "cruise", "chase"],
       maxBytes: 4096,
       maxNodes: 8,
@@ -50,7 +50,7 @@ const manifest = {
   stage: [
     {
       id: "base-platform",
-      path: "/assets/gltf/base-platform.glftest.gltf",
+      path: "/assets/gltf/fixtures/base-platform.glftest.gltf",
       clips: ["idle"],
       maxBytes: 4096,
       maxNodes: 8,
@@ -117,4 +117,4 @@ for (const imagePath of manifest.images) {
   }
 }
 
-console.log("GLTF dummy assets are valid and within lightweight budgets.");
+console.log("GLTF fixture assets are valid and within lightweight budgets.");

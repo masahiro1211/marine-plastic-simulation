@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DEFAULT_SIMULATION_CONFIG } from "../config/defaultSimulationConfig";
 import type {
   AgentState,
   BaseState,
@@ -10,67 +11,15 @@ import type {
   SimulationStats,
 } from "../types";
 
+const env = import.meta.env as Record<string, string | undefined>;
 const WS_URL =
-  process.env.REACT_APP_WS_URL ?? "ws://localhost:8000/ws/simulation";
-const API_URL = process.env.REACT_APP_API_URL ?? "http://localhost:8000";
-
-const DEFAULT_CONFIG: SimulationConfig = {
-  width: 960,
-  height: 640,
-  steps: 600,
-  tick_interval_ms: 50,
-  scout_count: 2,
-  collector_count: 3,
-  marine_life_count: 18,
-  initial_trash_count: 18,
-  scout_speed: 2.2,
-  collector_speed: 1.8,
-  marine_life_speed: 3.2,
-  trash_drift_speed: 0.35,
-  trash_weight: 1.0,
-  avoid_marine_life_weight: 1.15,
-  avoid_robot_weight: 0.85,
-  random_weight: 0.3,
-  scout_sensor_radius: 110,
-  collector_sensor_radius: 42,
-  collector_pickup_radius: 16,
-  marine_life_avoid_radius: 90,
-  collision_radius: 18,
-  base_radius: 48,
-  max_energy: 100,
-  energy_drain_per_tick: 0.55,
-  energy_charge_per_tick: 3.0,
-  return_speed_factor: 0.45,
-  low_energy_threshold: 18,
-  trash_spawn_interval: 24,
-  max_trash: 30,
-  trash_source_profile: "calm",
-  trash_cluster_min: 1,
-  trash_cluster_max: 3,
-  current_x: 0.35,
-  current_y: 0.08,
-  current_strength: 0.08,
-  diffusion_strength: 0.02,
-  convergence_x: null,
-  convergence_y: null,
-  convergence_strength: 0.004,
-  source_outflow_strength: 0.018,
-  fish_eat_radius: 14,
-  flock_zor_radius: 14,
-  flock_zoo_radius: 45,
-  flock_zoa_radius: 110,
-  flock_alignment_weight: 0.6,
-  flock_cohesion_weight: 0.35,
-  flock_max_turn_rate: 0.35,
-  flock_noise: 0.08,
-  sharing_mode: "global",
-  enable_manual_robot: true,
-  scout_search_duration: 20,
-  scout_levy_min_steps: 30,
-  scout_levy_max_steps: 180,
-  scout_levy_mu: 2.0,
-  scout_battery_enabled: false,
-};
+  env.VITE_WS_URL ??
+  env.REACT_APP_WS_URL ??
+  "ws://localhost:8000/ws/simulation";
+const API_URL =
+  env.VITE_API_URL ??
+  env.REACT_APP_API_URL ??
+  "http://localhost:8000";
 
 const DEFAULT_STATS: SimulationStats = {
   scouts: 0,
@@ -119,7 +68,7 @@ export default function useSimulation(): SimulationState {
   const [agents, setAgents] = useState<AgentState[]>([]);
   const [stats, setStats] = useState<SimulationStats>(DEFAULT_STATS);
   const [score, setScore] = useState<ScoreState>(DEFAULT_SCORE);
-  const [config, setConfig] = useState<SimulationConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<SimulationConfig>(DEFAULT_SIMULATION_CONFIG);
   const [base, setBase] = useState<BaseState>(DEFAULT_BASE);
   const [tick, setTick] = useState<number>(0);
   const [phase, setPhase] = useState<SimulationPhase>("idle");
@@ -152,7 +101,10 @@ export default function useSimulation(): SimulationState {
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
-    ws.onopen = () => setConnected(true);
+    ws.onopen = () => {
+      setConnected(true);
+      ws.send(JSON.stringify({ action: "start" }));
+    };
     ws.onclose = () => setConnected(false);
     ws.onmessage = (event: MessageEvent<string>) => {
       const data: SimulationSnapshot = JSON.parse(event.data);
@@ -165,6 +117,9 @@ export default function useSimulation(): SimulationState {
    */
   const disconnect = useCallback(() => {
     if (wsRef.current) {
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ action: "stop" }));
+      }
       wsRef.current.close();
       wsRef.current = null;
     }
@@ -219,7 +174,7 @@ export default function useSimulation(): SimulationState {
         body: JSON.stringify(nextConfig),
       });
       const result = (await response.json()) as { config?: SimulationConfig };
-      setConfig(result.config ?? DEFAULT_CONFIG);
+      setConfig(result.config ?? DEFAULT_SIMULATION_CONFIG);
 
       const snapshotResponse = await fetch(`${API_URL}/api/simulation/snapshot`);
       applySnapshot((await snapshotResponse.json()) as SimulationSnapshot);

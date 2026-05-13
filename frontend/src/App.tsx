@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import Canvas from "./components/Canvas";
-import Canvas3D, { type CameraPreset } from "./components/Canvas3D";
+import type { CameraPreset } from "./components/Canvas3D";
 import ControlPanel from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
 import useSimulation from "./hooks/useSimulation";
+
+const Canvas3D = lazy(() => import("./components/Canvas3D"));
 
 const MOVEMENT_KEYS = new Set([
   "w",
@@ -240,13 +242,15 @@ export default function App() {
               </button>
             </div>
             {view === "3d" ? (
-              <Canvas3D
-                agents={agents}
-                base={base}
-                width={config.width}
-                height={config.height}
-                cameraPreset={cameraPreset}
-              />
+              <Suspense fallback={<CanvasLoading width={config.width} height={config.height} />}>
+                <Canvas3D
+                  agents={agents}
+                  base={base}
+                  width={config.width}
+                  height={config.height}
+                  cameraPreset={cameraPreset}
+                />
+              </Suspense>
             ) : (
               <Canvas
                 agents={agents}
@@ -266,5 +270,18 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CanvasLoading({ width, height }: { width: number; height: number }) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: width,
+        aspectRatio: `${width} / ${height}`,
+      }}
+      className="border border-cyan-950 rounded-2xl shadow-2xl overflow-hidden bg-[#031624]"
+    />
   );
 }

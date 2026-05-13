@@ -22,7 +22,6 @@ async def simulation_ws(websocket: WebSocket):
     """
     engine = get_engine()
     await websocket.accept()
-    engine.start()
     try:
         while True:
             try:
