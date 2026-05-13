@@ -75,18 +75,25 @@ const DEFAULT_CONFIG: SimulationConfig = {
   scout_battery_enabled: false,
 };
 
-const FIELDS: Array<[NumericConfigKey, string]> = [
-  ["steps", "Steps"],
-  ["scout_count", "Scout Robots"],
-  ["collector_count", "Collector Robots"],
-  ["initial_trash_count", "Initial Trash"],
-  ["trash_cluster_min", "Trash Cluster Min"],
-  ["trash_cluster_max", "Trash Cluster Max"],
-];
+type PresetId = "easy" | "normal" | "hard";
 
-const BOOL_FIELDS: Array<[BoolConfigKey, string]> = [
-  ["enable_manual_robot", "Manual Robot"],
-];
+const PRESETS: Record<PresetId, { label: string; icon: string; overrides: Partial<SimulationConfig> }> = {
+  easy: {
+    label: "やさしい",
+    icon: "🐚",
+    overrides: { scout_count: 3, collector_count: 4, marine_life_count: 10, initial_trash_count: 12 },
+  },
+  normal: {
+    label: "ふつう",
+    icon: "🐟",
+    overrides: { scout_count: 2, collector_count: 3, marine_life_count: 18, initial_trash_count: 18 },
+  },
+  hard: {
+    label: "むずかしい",
+    icon: "🦈",
+    overrides: { scout_count: 1, collector_count: 2, marine_life_count: 26, initial_trash_count: 26 },
+  },
+};
 
 interface ControlPanelProps {
   connected: boolean;
@@ -94,11 +101,13 @@ interface ControlPanelProps {
   phase: SimulationPhase;
   onConnect: () => void;
   onDisconnect: () => void;
-  onReset: (nextConfig: SimulationConfig) => void;
+  onReset: (nextConfig: SimulationConfig) => void | Promise<void>;
 }
 
 /**
- * Render controls for connection state and the core simulation parameters.
+ * Render Reef Patrol mission controls — difficulty preset, fleet composition,
+ * manual-control toggle, and start/reset actions. The panel keeps the same
+ * external props as before so it can drop into App.tsx with no other changes.
  *
  * @param props Component props.
  * @returns Mission control panel UI.
@@ -112,6 +121,7 @@ export default function ControlPanel({
   onReset,
 }: ControlPanelProps) {
   const [config, setConfig] = useState<SimulationConfig>(DEFAULT_CONFIG);
+  const [preset, setPreset] = useState<PresetId>("normal");
 
   const initialIncomingConfigRef = useRef(incomingConfig);
   useEffect(() => {
@@ -119,71 +129,206 @@ export default function ControlPanel({
   }, []);
 
   /**
+   * Apply a difficulty preset over the current draft config.
+   *
+   * @param id Preset id to activate.
+   */
+  const handlePreset = (id: PresetId) => {
+    setPreset(id);
+    setConfig((prev) => ({ ...prev, ...PRESETS[id].overrides }));
+  };
+
+  /**
    * Update one numeric config field in local form state.
    *
    * @param key Configuration key to change.
-   * @param value Next raw input value.
+   * @param value Next numeric value.
    */
-  const handleChange = (key: NumericConfigKey, value: string) => {
-    setConfig((prev) => ({ ...prev, [key]: Number(value) }));
+  const handleNumber = (key: NumericConfigKey, value: number) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
+  /**
+   * Update one boolean config field in local form state.
+   *
+   * @param key Configuration key to change.
+   * @param checked Next checkbox value.
+   */
   const handleToggle = (key: BoolConfigKey, checked: boolean) => {
     setConfig((prev) => ({ ...prev, [key]: checked }));
   };
 
-  return (
-    <div className="bg-slate-950/80 text-slate-100 p-4 rounded-2xl min-w-[220px] shadow-xl border border-cyan-900/50">
-      <h3 className="text-base font-semibold mb-1">Mission Control</h3>
-      <p className="text-xs text-slate-400 mb-4">Phase: {phase}</p>
+  const phaseTone =
+    phase === "running"
+      ? "text-emerald-600"
+      : phase === "completed"
+      ? "text-amber-600"
+      : phase === "stopped"
+      ? "text-rose-600"
+      : "text-slate-500";
 
+  return (
+    <div className="bg-white text-[#1a3744] p-5 rounded-2xl w-[256px] shrink-0 border border-[#e2eef2] shadow-[0_1px_2px_rgba(15,80,100,0.03),0_8px_24px_-12px_rgba(15,80,100,0.12)]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[10px] tracking-[0.18em] font-bold text-[#7c95a0]">DIFFICULTY</span>
+        <span className={`text-[10px] font-semibold ${phaseTone}`}>{phase}</span>
+      </div>
+
+      {/* Difficulty segmented */}
+      <div className="flex gap-[2px] bg-[#0b3a45]/[0.06] p-1 rounded-[14px] mb-5">
+        {(Object.keys(PRESETS) as PresetId[]).map((id) => {
+          const active = preset === id;
+          return (
+            <button
+              key={id}
+              onClick={() => handlePreset(id)}
+              className={`flex-1 py-2 rounded-[11px] flex flex-col items-center gap-[2px] text-xs transition-all cursor-pointer ${
+                active
+                  ? "bg-white text-[#0e6a7b] font-bold shadow-[0_2px_6px_rgba(11,58,69,0.1)]"
+                  : "text-[#5d7a85] font-medium"
+              }`}
+            >
+              <span className={`text-lg leading-none ${active ? "" : "grayscale-[0.5]"}`}>
+                {PRESETS[id].icon}
+              </span>
+              <span>{PRESETS[id].label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Fleet composition */}
+      <div className="text-[10px] tracking-[0.18em] font-bold text-[#7c95a0] mb-2">
+        FLEET COMPOSITION
+      </div>
+      <div className="flex flex-col gap-3">
+        <SliderField
+          label="🛰  スカウト機数"
+          value={config.scout_count}
+          min={1}
+          max={6}
+          onChange={(v) => handleNumber("scout_count", v)}
+        />
+        <SliderField
+          label="🤿  コレクター機数"
+          value={config.collector_count}
+          min={1}
+          max={6}
+          onChange={(v) => handleNumber("collector_count", v)}
+        />
+        <SliderField
+          label="⏱  ステップ数"
+          value={config.steps}
+          min={200}
+          max={2000}
+          step={50}
+          unit="t"
+          onChange={(v) => handleNumber("steps", v)}
+        />
+      </div>
+
+      {/* Manual control toggle */}
+      <label className="flex items-center justify-between mt-4 px-3 py-2.5 bg-[#f4fafc] rounded-xl cursor-pointer">
+        <span className="text-[13px] text-[#345461] font-medium">手動操作モード</span>
+        <button
+          type="button"
+          onClick={() =>
+            handleToggle("enable_manual_robot", !config.enable_manual_robot)
+          }
+          className="relative w-9 h-5 rounded-full transition-colors shrink-0"
+          style={{
+            backgroundColor: config.enable_manual_robot ? "#0e6a7b" : "#cdd9de",
+          }}
+        >
+          <span
+            className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-[left]"
+            style={{ left: config.enable_manual_robot ? 18 : 2 }}
+          />
+        </button>
+      </label>
+
+      {/* Actions */}
       {!connected ? (
         <button
-          className="block w-full py-2 mb-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white text-sm cursor-pointer"
-          onClick={onConnect}
+          onClick={async () => {
+            await onReset(config);
+            onConnect();
+          }}
+          className="block w-full mt-4 py-3.5 rounded-2xl border-0 text-white text-sm font-bold tracking-wide cursor-pointer shadow-[0_8px_20px_-8px_rgba(224,138,91,0.55)]"
+          style={{
+            background:
+              "linear-gradient(95deg, #e08a5b 0%, #e89a4a 100%)",
+          }}
         >
-          Start Simulation
+          🚀 シミュレーション開始
         </button>
       ) : (
         <button
-          className="block w-full py-2 mb-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-sm cursor-pointer"
           onClick={onDisconnect}
+          className="block w-full mt-4 py-3.5 rounded-2xl border-0 text-white text-sm font-bold tracking-wide cursor-pointer shadow-[0_8px_20px_-8px_rgba(208,90,79,0.45)]"
+          style={{
+            background:
+              "linear-gradient(95deg, #d05a4f 0%, #e07a6a 100%)",
+          }}
         >
-          Stop Simulation
+          ⏹  停止
         </button>
       )}
 
       <button
-        className="block w-full py-2 mb-3 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-sm cursor-pointer"
         onClick={() => onReset(config)}
+        className="block w-full mt-2 py-2.5 rounded-xl border border-[#d9e8ec] bg-transparent text-[#5d7a85] text-xs cursor-pointer hover:bg-[#f4fafc] transition-colors"
       >
-        Apply And Reset
+        リセット
       </button>
-
-      <div className="space-y-2">
-        {FIELDS.map(([key, label]) => (
-          <label key={key} className="block text-xs">
-            <span className="text-slate-300">{label}</span>
-            <input
-              type="number"
-              value={config[key] ?? ""}
-              onChange={(event) => handleChange(key, event.target.value)}
-              className="block w-full p-2 mt-1 rounded-lg border border-slate-700 bg-slate-900 text-white text-sm"
-            />
-          </label>
-        ))}
-        {BOOL_FIELDS.map(([key, label]) => (
-          <label key={key} className="flex items-center text-xs">
-            <input
-              type="checkbox"
-              checked={config[key] ?? false}
-              onChange={(event) => handleToggle(key, event.target.checked)}
-              className="ml-2 rounded border-slate-700 bg-slate-900"
-            />
-            <span className="text-slate-300 ml-2">{label}</span>
-          </label>
-        ))}
-      </div>
     </div>
+  );
+}
+
+interface SliderFieldProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+}
+
+/**
+ * Render a labeled range slider with the current value chip on the right.
+ *
+ * @param props Slider props.
+ * @returns Slider row UI.
+ */
+function SliderField({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = "",
+  onChange,
+}: SliderFieldProps) {
+  return (
+    <label className="block">
+      <div className="flex justify-between items-baseline mb-1.5">
+        <span className="text-[13px] text-[#345461] font-medium">{label}</span>
+        <span className="text-[11px] font-semibold text-[#0e6a7b] bg-[#0e6a7b]/10 px-2 py-0.5 rounded-full tabular-nums">
+          {value}
+          {unit}
+        </span>
+      </div>
+      <input
+        type="range"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full cursor-pointer"
+        style={{ accentColor: "#0e6a7b" }}
+      />
+    </label>
   );
 }
