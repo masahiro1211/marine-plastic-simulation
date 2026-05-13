@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 from collections import deque
 from dataclasses import dataclass
@@ -36,6 +37,17 @@ class SharedTarget:
     y: float
     reporter_id: str
     tick: int
+
+
+@dataclass(frozen=True)
+class TrashSource:
+    """Weighted trash input source used by the simplified source-to-transport model."""
+
+    source_id: str
+    x: float
+    y: float
+    weight: float
+    spread_radius: float
 
 
 class SimulationEngine:
@@ -124,17 +136,43 @@ class SimulationEngine:
         for _ in range(self.config.predator_count):
             self._spawn_predator()
         for _ in range(self.config.initial_trash_count):
-            self._spawn_trash()
+            self._spawn_trash_from_source()
 
-    def _spawn_trash(self) -> None:
-        """Spawn one trash actor at a random valid position."""
+    def _spawn_trash(self, source: TrashSource | None = None) -> None:
+        """Spawn one trash actor at a valid source-aware position."""
+        if source is None:
+            x = random.uniform(30, self.config.width - 30)
+            y = random.uniform(20, self.config.height - 120)
+            source_id = "legacy"
+            source_x = x
+            source_y = y
+        else:
+            angle = random.uniform(0, math.tau)
+            distance = random.uniform(0, source.spread_radius)
+            x = source.x + math.cos(angle) * distance
+            y = source.y + math.sin(angle) * distance
+            x = min(max(x, 30), self.config.width - 30)
+            y = min(max(y, 20), self.config.height - 120)
+            source_id = source.source_id
+            source_x = source.x
+            source_y = source.y
         self.agents.append(
             Trash(
-                random.uniform(30, self.config.width - 30),
-                random.uniform(20, self.config.height - 120),
+                x,
+                y,
                 self.config.trash_drift_speed,
+                source_id=source_id,
+                source_x=source_x,
+                source_y=source_y,
             )
         )
+
+    def _spawn_trash_from_source(self) -> None:
+        """Spawn one trash actor from the configured source profile."""
+        if self.config.trash_source_profile == "legacy":
+            self._spawn_trash()
+            return
+        self._spawn_trash(self._select_trash_source())
 
     def _spawn_predator(self) -> None:
         """Spawn one predator at a random interior position."""
@@ -308,6 +346,113 @@ class SimulationEngine:
         """
         return [pred for pred in self.predators if pred.distance_to_point(x, y) <= radius]
 
+    def _trash_sources(self) -> list[TrashSource]:
+        """Build source presets for the current world and profile."""
+        width = self.config.width
+        height = self.config.height
+        weights_by_profile = {
+            "calm": {
+                "river_mouth": 2.0,
+                "coastal_city": 1.5,
+                "harbor": 1.0,
+                "offshore": 0.8,
+            },
+            "rain": {
+                "river_mouth": 5.0,
+                "coastal_city": 1.8,
+                "harbor": 1.0,
+                "offshore": 0.6,
+            },
+            "storm": {
+                "river_mouth": 3.5,
+                "coastal_city": 2.0,
+                "harbor": 1.8,
+                "offshore": 2.8,
+            },
+            "harbor": {
+                "river_mouth": 1.0,
+                "coastal_city": 1.5,
+                "harbor": 5.0,
+                "offshore": 0.5,
+            },
+        }
+        weights = weights_by_profile.get(
+            self.config.trash_source_profile,
+            weights_by_profile["calm"],
+        )
+        return [
+            TrashSource("river_mouth", width * 0.18, height * 0.20, weights["river_mouth"], 48),
+            TrashSource("coastal_city", width * 0.82, height * 0.34, weights["coastal_city"], 64),
+            TrashSource("harbor", width * 0.50, max(height - 110, 30), weights["harbor"], 42),
+            TrashSource("offshore", width * 0.50, 26, weights["offshore"], 120),
+        ]
+
+    def _select_trash_source(self) -> TrashSource:
+        """Select a trash source by configured source weights."""
+        sources = self._trash_sources()
+        total = sum(max(source.weight, 0.0) for source in sources)
+        if total <= 0:
+            return sources[0]
+        threshold = random.uniform(0, total)
+        cumulative = 0.0
+        for source in sources:
+            cumulative += max(source.weight, 0.0)
+            if threshold <= cumulative:
+                return source
+        return sources[-1]
+
+    def _runtime_trash_cluster_size(self) -> int:
+        """Return runtime trash cluster size for the current profile."""
+        lower = max(1, self.config.trash_cluster_min)
+        upper = max(lower, self.config.trash_cluster_max)
+        profile_bonus = {
+            "legacy": 0,
+            "calm": 0,
+            "rain": 1,
+            "storm": 2,
+            "harbor": 1,
+        }.get(self.config.trash_source_profile, 0)
+        return random.randint(lower, upper) + profile_bonus
+
+    def trash_current_vector(self) -> tuple[float, float]:
+        """Return global current velocity contribution for trash."""
+        norm = math.hypot(self.config.current_x, self.config.current_y)
+        if norm == 0:
+            return (0.0, 0.0)
+        strength = self.config.current_strength
+        if self.config.trash_source_profile == "storm":
+            strength *= 1.8
+        return (
+            self.config.current_x / norm * strength,
+            self.config.current_y / norm * strength,
+        )
+
+    def trash_source_outflow(self, trash: Trash) -> tuple[float, float]:
+        """Return weak outflow away from the trash source."""
+        dx = trash.x - trash.source_x
+        dy = trash.y - trash.source_y
+        norm = math.hypot(dx, dy)
+        if norm == 0:
+            return (0.0, 0.0)
+        strength = self.config.source_outflow_strength
+        return (dx / norm * strength, dy / norm * strength)
+
+    def trash_convergence_pull(self, trash: Trash) -> tuple[float, float]:
+        """Return weak pull toward a simplified accumulation zone."""
+        target_x = self.config.convergence_x
+        target_y = self.config.convergence_y
+        if target_x is None:
+            target_x = self.config.width * 0.62
+        if target_y is None:
+            target_y = self.config.height * 0.38
+        dx = target_x - trash.x
+        dy = target_y - trash.y
+        norm = math.hypot(dx, dy)
+        if norm == 0:
+            return (0.0, 0.0)
+        strength = self.config.convergence_strength
+        return (dx / norm * strength, dy / norm * strength)
+
     def share_target(self, trash: Trash, reporter: Scout) -> None:
         """Publish a trash detection event for collectors.
 
@@ -469,9 +614,14 @@ class SimulationEngine:
             return
         if self.tick % self.config.trash_spawn_interval != 0:
             return
-        if len(self.trash_items) >= self.config.max_trash:
+        available_slots = self.config.max_trash - len(self.trash_items)
+        if available_slots <= 0:
             return
-        self._spawn_trash()
+        if self.config.trash_source_profile == "legacy":
+            self._spawn_trash()
+            return
+        for _ in range(min(self._runtime_trash_cluster_size(), available_slots)):
+            self._spawn_trash_from_source()
 
     def _resolve_base_interactions(self) -> None:
         """Apply charging and trash delivery for robots inside base range."""
@@ -511,11 +661,11 @@ class SimulationEngine:
                 if robot.distance_to(other) <= self.config.collision_radius:
                     pair = tuple(sorted([robot.id, other.id]))
                     last_tick = self._recent_collision_pairs.get(pair, -10**9)
-                    
+
                     # 前回の衝突からクールダウン期間が経過していなければスキップ
                     if self.tick - last_tick < self.config.collision_cooldown_ticks:
                         continue
-                        
+
                     # 衝突したtickを記録
                     self._recent_collision_pairs[pair] = self.tick
                     if getattr(robot, "is_manual", False):

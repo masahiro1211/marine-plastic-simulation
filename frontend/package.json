@@ -23,8 +23,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
-    "typecheck": "tsc --noEmit"
+    "build": "GENERATE_SOURCEMAP=false react-scripts build",
+    "typecheck": "tsc --noEmit",
+    "test:gltf-assets": "node scripts/validate-gltf-assets.js"
   },
   "browserslist": {
     "production": [

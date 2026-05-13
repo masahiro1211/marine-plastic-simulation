@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import random
 
 from app.models.schemas import SimulationConfig
 from app.simulation.engine import SimulationEngine
@@ -53,6 +54,81 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
+
+    def test_runtime_trash_cluster_respects_max_trash(self) -> None:
+        random.seed(10)
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                initial_trash_count=0,
+                trash_spawn_interval=1,
+                max_trash=2,
+                trash_cluster_min=5,
+                trash_cluster_max=5,
+                trash_source_profile="storm",
+                enable_manual_robot=False,
+                predator_count=0,
+                steps=10,
+            )
+        )
+
+        engine.step()
+
+        self.assertEqual(len(engine.trash_items), 2)
+        self.assertLessEqual(len(engine.trash_items), engine.config.max_trash)
+
+    def test_source_profile_adds_source_metadata(self) -> None:
+        random.seed(11)
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                initial_trash_count=6,
+                trash_source_profile="harbor",
+                enable_manual_robot=False,
+                predator_count=0,
+            )
+        )
+
+        source_ids = {trash.source_id for trash in engine.trash_items}
+
+        self.assertNotEqual(source_ids, {"legacy"})
+        self.assertTrue(source_ids <= {"river_mouth", "coastal_city", "harbor", "offshore"})
+        self.assertTrue(any("source_id" in trash.base_metadata() for trash in engine.trash_items))
+
+    def test_trash_transport_uses_current(self) -> None:
+        random.seed(12)
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                initial_trash_count=1,
+                trash_drift_speed=1.0,
+                trash_source_profile="calm",
+                current_x=1.0,
+                current_y=0.0,
+                current_strength=0.2,
+                diffusion_strength=0.0,
+                convergence_strength=0.0,
+                source_outflow_strength=0.0,
+                enable_manual_robot=False,
+                predator_count=0,
+            )
+        )
+        trash = engine.trash_items[0]
+        trash.vx = 0.0
+        trash.vy = 0.0
+        before_x = trash.x
+
+        trash.update(engine)
+
+        self.assertGreater(trash.x, before_x)
+        self.assertAlmostEqual(trash.vy, 0.0)
+
     def test_collision_cooldown_and_penalty_guards(self) -> None:
         """同一ペアの衝突クールダウン、独立カウント、およびスロウ上書き防止のテスト"""
         # 手動ロボット1体、自動ロボット2体でシミュレーションを準備
@@ -67,7 +143,7 @@ class SimulationEngineTests(unittest.TestCase):
                 manual_penalty_ticks=200,
             )
         )
-        
+
         # ロボットの抽出
         manual = next(r for r in engine.collectors if getattr(r, "is_manual", False))
         autos = [r for r in engine.collectors if not getattr(r, "is_manual", False)]
@@ -77,7 +153,7 @@ class SimulationEngineTests(unittest.TestCase):
         # 3体を同じ座標（衝突距離内）に配置
         manual.x = manual.y = 100
         auto1.x = auto1.y = 100
-        
+
         # auto2は一旦遠くへ避難させておく
         auto2.x = auto2.y = 9999
 
@@ -105,7 +181,7 @@ class SimulationEngineTests(unittest.TestCase):
         auto2.x = auto2.y = 100
         engine.tick = 36
         engine._resolve_collisions()
-        
+
         # auto1 と auto2 は「初めてのペア」なので、クールダウンに関係なく即座にカウントされる
         self.assertEqual(engine.collisions, 3, "異なるペアの衝突は独立して即座にカウントされること")
 if __name__ == "__main__":

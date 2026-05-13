@@ -10,6 +10,7 @@ services:
 
   frontend:
     build: ./frontend
+    command: sh -c "npm ci && npm start"
     ports:
       - "3000:3000"
     volumes:

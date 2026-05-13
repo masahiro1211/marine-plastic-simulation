@@ -8,6 +8,7 @@
 - `runtime_behavior.md`: シミュレーション挙動、役割、スコア、基地、再生成
 - `api_contracts.md`: Config / Snapshot / Event の契約
 - `development_workflow.md`: Docker、ローカル実行、テスト、CI
+- `gltf_asset_runtime.md`: GLTF / 画像アセットの読み込み、軽量化、カメラ操作
 
 ## 参照順
 
@@ -16,3 +17,4 @@
 3. `program_docs/runtime_behavior.md`
 4. `program_docs/api_contracts.md`
 5. `program_docs/development_workflow.md`
+6. `program_docs/gltf_asset_runtime.md`

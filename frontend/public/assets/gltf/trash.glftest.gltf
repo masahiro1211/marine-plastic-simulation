@@ -1,0 +1,17 @@
+{
+  "asset": { "version": "2.0", "generator": "marine-plastic-simulation dummy gltf" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "name": "TrashFragment", "mesh": 0 }],
+  "meshes": [{ "name": "TrashFragmentMesh", "primitives": [{ "mode": 4 }] }],
+  "animations": [{ "name": "idle" }, { "name": "drift" }],
+  "extras": {
+    "mps": {
+      "scale": 1,
+      "animationClips": ["idle", "drift"],
+      "primitives": [
+        { "kind": "polygon", "fill": "#fb923c", "stroke": "#7c2d12", "lineWidth": 1, "points": [[-8,-2],[6,-7],[9,3],[-3,8]] }
+      ]
+    }
+  }
+}
