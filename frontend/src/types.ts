@@ -1,7 +1,7 @@
 /** Lifecycle phases emitted by the backend runtime. */
 export type SimulationPhase = "idle" | "running" | "stopped" | "completed";
 /** Agent kinds currently supported by the frontend renderer registry. */
-export type AgentType = "scout" | "collector" | "marine_life" | "trash";
+export type AgentType = "scout" | "collector" | "marine_life" | "trash" | "predator";
 
 /** Runtime configuration shared between frontend and backend. */
 export interface SimulationConfig {
@@ -34,6 +34,17 @@ export interface SimulationConfig {
   low_energy_threshold: number;
   trash_spawn_interval: number;
   max_trash: number;
+  trash_source_profile: "legacy" | "calm" | "rain" | "storm" | "harbor";
+  trash_cluster_min: number;
+  trash_cluster_max: number;
+  current_x: number;
+  current_y: number;
+  current_strength: number;
+  diffusion_strength: number;
+  convergence_x?: number | null;
+  convergence_y?: number | null;
+  convergence_strength: number;
+  source_outflow_strength: number;
   fish_eat_radius?: number;
   flock_zor_radius?: number;
   flock_zoo_radius?: number;
@@ -42,6 +53,27 @@ export interface SimulationConfig {
   flock_cohesion_weight?: number;
   flock_max_turn_rate?: number;
   flock_noise?: number;
+  wall_repulsion_radius?: number;
+  wall_repulsion_weight?: number;
+  habitat_drift_weight?: number;
+  speed_evade_factor?: number;
+  speed_zor_factor?: number;
+  speed_adapt_rate?: number;
+  inter_species_repulsion_radius?: number;
+  inter_species_repulsion_weight?: number;
+  panic_radius?: number;
+  panic_contagion_radius?: number;
+  panic_heading_noise?: number;
+  panic_speed_factor?: number;
+  predator_count?: number;
+  predator_speed?: number;
+  predator_chase_speed_factor?: number;
+  predator_sensor_radius?: number;
+  predator_panic_radius?: number;
+  predator_cluster_min_size?: number;
+  predator_levy_min_steps?: number;
+  predator_levy_max_steps?: number;
+  predator_levy_mu?: number;
   sharing_mode: "global" | "local";
   enable_manual_robot: boolean;
   scout_search_duration: number;

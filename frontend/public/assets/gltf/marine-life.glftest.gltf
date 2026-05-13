@@ -1,0 +1,19 @@
+{
+  "asset": { "version": "2.0", "generator": "marine-plastic-simulation dummy gltf" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "name": "MarineLife", "mesh": 0 }],
+  "meshes": [{ "name": "MarineLifeMesh", "primitives": [{ "mode": 4 }] }],
+  "animations": [{ "name": "idle" }, { "name": "swim" }, { "name": "stress" }],
+  "extras": {
+    "mps": {
+      "scale": 1,
+      "animationClips": ["idle", "swim", "stress"],
+      "primitives": [
+        { "kind": "ellipse", "fill": "#7dd3fc", "x": 0, "y": 0, "radiusX": 12, "radiusY": 7 },
+        { "kind": "polygon", "fill": "#7dd3fc", "points": [[-10,0],[-17,-6],[-17,6]] },
+        { "kind": "ellipse", "fill": "#0f172a", "x": 6, "y": -2, "radiusX": 1.5, "radiusY": 1.5 }
+      ]
+    }
+  }
+}

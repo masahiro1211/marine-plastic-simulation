@@ -17,7 +17,7 @@ class Collector(BaseAgent):
         self.pickup_radius = pickup_radius
         self.energy = max_energy
         self.carrying_trash_id: str | None = None
-        
+
         # 手動ロボット用の追加プロパティ
         self.is_manual = False
         self.manual_vx = 0.0
@@ -63,7 +63,7 @@ class Collector(BaseAgent):
         if self.is_manual:
             self.status = "manual" if self.slowdown_ticks == 0 else "slowed_down"
             self.target_id = None
-            
+
             # WASDに基づく移動
             norm = math.hypot(self.manual_vx, self.manual_vy)
             if norm > 0:
@@ -102,14 +102,14 @@ class Collector(BaseAgent):
                 self.status = "delivering"
                 self.target_id = "base"
                 self.set_velocity_towards(world.base.x, world.base.y, current_speed)
-                
+
             elif is_at_base and self.energy < world.config.max_energy:
                 # 優先度2: 基地で充電中（バッテリーがMAXになるまで出撃しない）
                 self.status = "charging"
                 self.target_id = "base"
                 self.vx = 0.0
                 self.vy = 0.0
-                
+
             elif self.energy <= world.config.low_energy_threshold or self.energy <= 0:
                 # 優先度3: エネルギー低下（帰還）
                 self.status = "returning_low_power" if self.energy <= 0 else "returning"
@@ -119,13 +119,13 @@ class Collector(BaseAgent):
                     world.base.y,
                     current_speed * (world.config.return_speed_factor if self.energy <= 0 else 1.0),
                 )
-                
+
             elif target is not None:
                 # 優先度4: ゴミの追跡
                 self.status = "collecting"
                 self.target_id = target.id
                 self.set_velocity_towards(target.x, target.y, current_speed)
-                
+
             else:
                 # 優先度5: 通常パトロール
                 self.status = "patrolling"
@@ -136,6 +136,6 @@ class Collector(BaseAgent):
         if not self.is_manual:
             world.apply_robot_avoidance(self)
             world.apply_marine_life_avoidance(self)
-            
+
         self.move(world.config.width, world.config.height)
         world.drain_energy(self)
