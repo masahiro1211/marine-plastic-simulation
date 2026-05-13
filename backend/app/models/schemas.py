@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class SimulationConfig(BaseModel):
@@ -79,101 +79,114 @@ class SimulationConfig(BaseModel):
         predator_levy_mu: Lévy exponent for cruise leg length sampling.
     """
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
 
-    width: float = 960
-    height: float = 640
-    steps: int = 600
-    tick_interval_ms: int = 50
+    width: float = Field(default=960, ge=240, le=3840)
+    height: float = Field(default=640, ge=240, le=2160)
+    steps: int = Field(default=600, ge=1, le=10_000)
+    tick_interval_ms: int = Field(default=50, ge=16, le=1000)
 
-    scout_count: int = 2
-    collector_count: int = 3
-    marine_life_count: int = 18
-    initial_trash_count: int = 18
+    scout_count: int = Field(default=2, ge=0, le=20)
+    collector_count: int = Field(default=3, ge=0, le=20)
+    marine_life_count: int = Field(default=18, ge=0, le=200)
+    initial_trash_count: int = Field(default=18, ge=0, le=500)
 
-    scout_speed: float = 2.2
-    collector_speed: float = 1.8
-    marine_life_speed: float = 3.2
-    trash_drift_speed: float = 0.35
+    scout_speed: float = Field(default=2.2, ge=0, le=20)
+    collector_speed: float = Field(default=1.8, ge=0, le=20)
+    marine_life_speed: float = Field(default=3.2, ge=0, le=20)
+    trash_drift_speed: float = Field(default=0.35, ge=0, le=10)
 
-    trash_weight: float = 1.0
-    avoid_marine_life_weight: float = 1.15
-    avoid_robot_weight: float = 2.5
-    random_weight: float = 0.3
+    trash_weight: float = Field(default=1.0, ge=0, le=10)
+    avoid_marine_life_weight: float = Field(default=1.15, ge=0, le=10)
+    avoid_robot_weight: float = Field(default=2.5, ge=0, le=10)
+    random_weight: float = Field(default=0.3, ge=0, le=10)
 
-    scout_sensor_radius: float = 110
-    collector_sensor_radius: float = 42
-    collector_pickup_radius: float = 16
-    marine_life_avoid_radius: float = 130
-    collision_radius: float = 18
-    base_radius: float = 48
+    scout_sensor_radius: float = Field(default=110, ge=0, le=1000)
+    collector_sensor_radius: float = Field(default=42, ge=0, le=1000)
+    collector_pickup_radius: float = Field(default=16, ge=0, le=500)
+    marine_life_avoid_radius: float = Field(default=130, ge=0, le=1000)
+    collision_radius: float = Field(default=18, ge=0, le=500)
+    base_radius: float = Field(default=48, ge=1, le=500)
 
-    max_energy: float = 100
-    energy_drain_per_tick: float = 0.55
-    energy_charge_per_tick: float = 3.0
-    return_speed_factor: float = 0.45
-    low_energy_threshold: float = 18
+    max_energy: float = Field(default=100, ge=1, le=10_000)
+    energy_drain_per_tick: float = Field(default=0.55, ge=0, le=1000)
+    energy_charge_per_tick: float = Field(default=3.0, ge=0, le=1000)
+    return_speed_factor: float = Field(default=0.45, ge=0, le=10)
+    low_energy_threshold: float = Field(default=18, ge=0, le=10_000)
 
-    trash_spawn_interval: int = 24
-    max_trash: int = 30
+    trash_spawn_interval: int = Field(default=24, ge=0, le=10_000)
+    max_trash: int = Field(default=30, ge=0, le=500)
     trash_source_profile: Literal["legacy", "calm", "rain", "storm", "harbor"] = "calm"
-    trash_cluster_min: int = 1
-    trash_cluster_max: int = 3
-    current_x: float = 0.35
-    current_y: float = 0.08
-    current_strength: float = 0.08
-    diffusion_strength: float = 0.02
-    convergence_x: float | None = None
-    convergence_y: float | None = None
-    convergence_strength: float = 0.004
-    source_outflow_strength: float = 0.018
+    trash_cluster_min: int = Field(default=1, ge=1, le=100)
+    trash_cluster_max: int = Field(default=3, ge=1, le=100)
+    current_x: float = Field(default=0.35, ge=-1, le=1)
+    current_y: float = Field(default=0.08, ge=-1, le=1)
+    current_strength: float = Field(default=0.08, ge=0, le=10)
+    diffusion_strength: float = Field(default=0.02, ge=0, le=10)
+    convergence_x: float | None = Field(default=None, ge=0, le=3840)
+    convergence_y: float | None = Field(default=None, ge=0, le=2160)
+    convergence_strength: float = Field(default=0.004, ge=0, le=10)
+    source_outflow_strength: float = Field(default=0.018, ge=0, le=10)
 
-    fish_eat_radius: float = 14.0
+    fish_eat_radius: float = Field(default=14.0, ge=0, le=500)
 
-    flock_zor_radius: float = 14
-    flock_zoo_radius: float = 45
-    flock_zoa_radius: float = 110
-    flock_alignment_weight: float = 0.6
-    flock_cohesion_weight: float = 0.35
-    flock_max_turn_rate: float = 0.35
-    flock_noise: float = 0.08
+    flock_zor_radius: float = Field(default=14, ge=0, le=500)
+    flock_zoo_radius: float = Field(default=45, ge=0, le=1000)
+    flock_zoa_radius: float = Field(default=110, ge=0, le=1000)
+    flock_alignment_weight: float = Field(default=0.6, ge=0, le=10)
+    flock_cohesion_weight: float = Field(default=0.35, ge=0, le=10)
+    flock_max_turn_rate: float = Field(default=0.35, ge=0, le=6.2832)
+    flock_noise: float = Field(default=0.08, ge=0, le=6.2832)
 
-    wall_repulsion_radius: float = 60.0
-    wall_repulsion_weight: float = 2.0
+    wall_repulsion_radius: float = Field(default=60.0, ge=0, le=1000)
+    wall_repulsion_weight: float = Field(default=2.0, ge=0, le=10)
 
-    habitat_drift_weight: float = 0.0
+    habitat_drift_weight: float = Field(default=0.0, ge=0, le=10)
 
-    speed_evade_factor: float = 1.4
-    speed_zor_factor: float = 0.7
-    speed_adapt_rate: float = 0.1
+    speed_evade_factor: float = Field(default=1.4, ge=0, le=10)
+    speed_zor_factor: float = Field(default=0.7, ge=0, le=10)
+    speed_adapt_rate: float = Field(default=0.1, ge=0, le=1)
 
-    inter_species_repulsion_radius: float = 80.0
-    inter_species_repulsion_weight: float = 2.5
+    inter_species_repulsion_radius: float = Field(default=80.0, ge=0, le=1000)
+    inter_species_repulsion_weight: float = Field(default=2.5, ge=0, le=10)
 
-    panic_radius: float = 45.0
-    panic_contagion_radius: float = 60.0
-    panic_heading_noise: float = 0.8
-    panic_speed_factor: float = 2.2
+    panic_radius: float = Field(default=45.0, ge=0, le=1000)
+    panic_contagion_radius: float = Field(default=60.0, ge=0, le=1000)
+    panic_heading_noise: float = Field(default=0.8, ge=0, le=6.2832)
+    panic_speed_factor: float = Field(default=2.2, ge=0, le=10)
 
-    predator_count: int = 1
-    predator_speed: float = 3.0
-    predator_chase_speed_factor: float = 1.4
-    predator_sensor_radius: float = 200.0
-    predator_panic_radius: float = 75.0
-    predator_cluster_min_size: int = 3
-    predator_levy_min_steps: int = 30
-    predator_levy_max_steps: int = 180
-    predator_levy_mu: float = 2.0
+    predator_count: int = Field(default=1, ge=0, le=20)
+    predator_speed: float = Field(default=3.0, ge=0, le=20)
+    predator_chase_speed_factor: float = Field(default=1.4, ge=0, le=10)
+    predator_sensor_radius: float = Field(default=200.0, ge=0, le=1000)
+    predator_panic_radius: float = Field(default=75.0, ge=0, le=1000)
+    predator_cluster_min_size: int = Field(default=3, ge=1, le=200)
+    predator_levy_min_steps: int = Field(default=30, ge=1, le=10_000)
+    predator_levy_max_steps: int = Field(default=180, ge=1, le=10_000)
+    predator_levy_mu: float = Field(default=2.0, ge=1, le=5)
 
     sharing_mode: Literal["global", "local"] = "global"
     enable_manual_robot: bool = True
-    manual_penalty_ticks: int = 50
-    collision_cooldown_ticks: int = 30
-    scout_search_duration: int = 20
-    scout_levy_min_steps: int = 30
-    scout_levy_max_steps: int = 180
-    scout_levy_mu: float = 2.0
+    manual_penalty_ticks: int = Field(default=50, ge=0, le=10_000)
+    collision_cooldown_ticks: int = Field(default=30, ge=0, le=10_000)
+    scout_search_duration: int = Field(default=20, ge=0, le=10_000)
+    scout_levy_min_steps: int = Field(default=30, ge=1, le=10_000)
+    scout_levy_max_steps: int = Field(default=180, ge=1, le=10_000)
+    scout_levy_mu: float = Field(default=2.0, ge=1, le=5)
     scout_battery_enabled: bool = False
+
+    @model_validator(mode="after")
+    def validate_ordered_ranges(self) -> SimulationConfig:
+        """Reject internally inconsistent ranges before they reach the engine."""
+        if self.trash_cluster_max < self.trash_cluster_min:
+            raise ValueError("trash_cluster_max must be greater than or equal to trash_cluster_min")
+        if self.scout_levy_max_steps < self.scout_levy_min_steps:
+            raise ValueError("scout_levy_max_steps must be greater than or equal to scout_levy_min_steps")
+        if self.predator_levy_max_steps < self.predator_levy_min_steps:
+            raise ValueError("predator_levy_max_steps must be greater than or equal to predator_levy_min_steps")
+        if self.low_energy_threshold > self.max_energy:
+            raise ValueError("low_energy_threshold must be less than or equal to max_energy")
+        return self
 
 
 class BaseState(BaseModel):

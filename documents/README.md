@@ -9,7 +9,8 @@
 2. `documents/01_source_of_truth/IMPLEMENTATION_SOURCE_OF_TRUTH.md`
 3. `documents/03_readiness/IMPLEMENTATION_READINESS_CHECKLIST.md`
 4. `documents/04_delivery/DELIVERY_MILESTONES.md`
-5. `documents/06_open_questions/OPEN_QUESTIONS.md`
+5. `documents/04_delivery/SECURITY_HARDENING_REPORT_2026-05-13.md`
+6. `documents/06_open_questions/OPEN_QUESTIONS.md`
 
 ## フォルダ構成
 
@@ -28,6 +29,8 @@
 - CI では backend test、frontend build、`docker compose build` を検証対象としている
 - frontend の lockfile は `yaml` を含めて CI 実行環境と整合するよう更新済み
 - backend の主要 Python モジュールは Google docstring 形式で整備済み
+- backend は CORS / Host / WebSocket Origin / config validation の防御を追加済み
+- 2026-05-13 時点の frontend `npm audit` は 0 vulnerabilities
 - `docs/` は Git 管理対象ではなく、`documents/` と `program_docs/` を参照する運用にしている
 
 ## 詳細仕様の置き場
