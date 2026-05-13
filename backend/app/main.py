@@ -28,6 +28,13 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+
+@app.get("/healthz", include_in_schema=False)
+def healthz() -> dict[str, str]:
+    """Return a small health response for platform readiness checks."""
+    return {"status": "ok"}
+
+
 app.include_router(simulation_router)
 app.include_router(config_router)
 app.include_router(stats_router)

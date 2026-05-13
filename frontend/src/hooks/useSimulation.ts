@@ -12,14 +12,29 @@ import type {
 } from "../types";
 
 const env = import.meta.env as Record<string, string | undefined>;
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function websocketUrlFromApiUrl(apiUrl: string): string {
+  try {
+    const url = new URL(apiUrl);
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.pathname = "/ws/simulation";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "ws://localhost:8000/ws/simulation";
+  }
+}
+
+const API_URL = trimTrailingSlash(
+  env.VITE_API_URL ?? env.REACT_APP_API_URL ?? "http://localhost:8000"
+);
 const WS_URL =
-  env.VITE_WS_URL ??
-  env.REACT_APP_WS_URL ??
-  "ws://localhost:8000/ws/simulation";
-const API_URL =
-  env.VITE_API_URL ??
-  env.REACT_APP_API_URL ??
-  "http://localhost:8000";
+  env.VITE_WS_URL ?? env.REACT_APP_WS_URL ?? websocketUrlFromApiUrl(API_URL);
 
 const DEFAULT_STATS: SimulationStats = {
   scouts: 0,
