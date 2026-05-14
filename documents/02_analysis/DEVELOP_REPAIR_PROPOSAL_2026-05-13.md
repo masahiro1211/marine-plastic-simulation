@@ -84,29 +84,6 @@ develop 系に入っている現状の問題を、実装修正に入る前に洗
 
 - 起動時間、CPU 使用率、描画負荷をそれぞれ別に下げられる。
 
-### P1: 手動操作ロボットの見た目と識別性
-
-現状:
-
-- 3D collector は単なる緑の box。
-- manual collector と通常 collector の見た目が区別されない。
-- 2D 側も collector の carrying indicator はあるが manual mode の主役感が弱い。
-
-提案:
-
-- `metadata` または既存 `is_manual` 状態を frontend state に出すか、manual collector の ID/role を判定可能にする。
-- manual robot 専用の 2D/3D 表現を作る: 操作中 indicator、向き、ライト、アーム/回収機構。
-- 通常 collector と色・形・サイズ・エフェクトを分ける。
-- 操作入力中、衝突ペナルティ中、carry 中の状態を見た目に反映する。
-
-期待効果:
-
-- 操作対象が即座に分かる。
-- 「箱が動いている」印象を避けられる。
-
-承認結果:
-
-- 2026-05-13 時点でこの項目のみ REJECT。今回の実装スコープから除外する。
 
 ### P1: frontend/backend config の二重定義と不一致
 
@@ -202,7 +179,6 @@ develop 系に入っている現状の問題を、実装修正に入る前に洗
 1. Docker/frontend 起動の修正: Node 22, `npm ci`, 起動時 install 廃止。
 2. build artifact / ignore / user の整理。
 3. runtime asset manifest と dummy fixture の分離。
-4. 手動操作ロボットの見た目と状態表現。
 5. 3D/2D rendering performance 改善。
 6. config default の単一化と backend/frontend 差分検出。
 7. WebSocket lifecycle の意味整理。
@@ -229,3 +205,4 @@ develop 系に入っている現状の問題を、実装修正に入る前に洗
 - `npm run test:gltf-assets` または新しい asset validation command
 - `docker compose run --rm backend python -m unittest discover -s tests`
 - ブラウザで 2D/3D 表示、manual robot 操作、start/stop/reset を確認
+

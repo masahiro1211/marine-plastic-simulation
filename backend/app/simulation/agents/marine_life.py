@@ -18,7 +18,7 @@ class MarineLife(BaseAgent):
 
     AGENT_TYPE = "marine_life"
     ROLE = "marine_life"
-    DEFAULT_RADIUS = 10.0
+    DEFAULT_RADIUS = 15.0
 
     def __init__(self, x: float, y: float, speed: float, species_id: int = 0):
         """Initialize a marine life actor.
@@ -264,6 +264,8 @@ class MarineLife(BaseAgent):
         """
         nearby = world.find_trash_near(self.x, self.y, cfg.fish_eat_radius)
         if not nearby:
+            return
+        if random.random() > world.fish_eat_probability:
             return
         world.fish_eats_trash(self, nearby[0])
 
