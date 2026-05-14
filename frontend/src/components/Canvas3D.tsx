@@ -9,6 +9,7 @@ export type CameraPreset = "angle" | "top";
 
 useGLTF.preload("/models/orca.glb");
 useGLTF.preload("/models/collector.glb");
+useGLTF.preload("/models/collector_manual.glb");
 useGLTF.preload("/models/fish.glb");
 useGLTF.preload("/models/fish_2.glb");
 useGLTF.preload("/models/fish_3.glb");
@@ -132,7 +133,9 @@ const COLLECTOR_BASE_SCALE = 9;
 const COLLECTOR_Y_OFFSET = 0;
 
 function CollectorMesh({ agent }: { agent: AgentState }) {
-  const { scene, animations } = useGLTF("/models/collector.glb");
+  const isManual = Boolean(agent.metadata?.is_manual);
+  const modelPath = isManual ? "/models/collector_manual.glb" : "/models/collector.glb";
+  const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions, names } = useAnimations(animations, cloned);
 
