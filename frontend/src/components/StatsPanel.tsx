@@ -207,10 +207,6 @@ export default function StatsPanel({
             <span className="text-[#d05a4f] font-bold">−2</span>
             <span className="ml-1">衝突</span>
           </div>
-          <div>
-            <span className="text-[#0e6a7b] font-bold">+1</span>
-            <span className="ml-1">エネルギー</span>
-          </div>
         </div>
       </div>
 
@@ -226,7 +222,7 @@ export default function StatsPanel({
             accent="#1a9a7e"
           />
           <StatRow
-            label="残ごみ"
+            label="残りごみ"
             value={stats.trash_remaining}
             accent="#0e6a7b"
           />

@@ -717,8 +717,7 @@ class SimulationEngine:
         energy_remaining = round(sum(robot.energy for robot in self.scouts + self.collectors), 2)
         total = round(
             self.delivered_trash * 12
-            - self.collisions * 2
-            + energy_remaining * 0.05,
+            - self.collisions * 2,
             2,
         )
         return ScoreState(
