@@ -255,8 +255,8 @@ class SimulationEngine:
         for fish in marine_life_list:
             fish.update(self)
 
-        self._resolve_base_interactions()
         self._resolve_collisions()
+        self._resolve_base_interactions()
         self._cleanup_shared_targets()
         self._record_history()
 

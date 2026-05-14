@@ -55,6 +55,34 @@ class SimulationEngineTests(unittest.TestCase):
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
 
+    def test_manual_collector_does_not_stop_on_delivery_collision(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=1,
+                marine_life_count=0,
+                initial_trash_count=0,
+                enable_manual_robot=True,
+                predator_count=0,
+                collector_speed=0,
+                random_weight=0,
+                trash_spawn_interval=0,
+                manual_penalty_ticks=50,
+            )
+        )
+        manual = next(agent for agent in engine.collectors if agent.is_manual)
+        auto = next(agent for agent in engine.collectors if not agent.is_manual)
+        manual.x = auto.x = engine.base.x
+        manual.y = auto.y = engine.base.y
+        manual.carrying_trash_id = "trash-delivery"
+
+        engine.start()
+        engine.step()
+
+        self.assertEqual(engine.delivered_trash, 1)
+        self.assertIsNone(manual.carrying_trash_id)
+        self.assertEqual(manual.slowdown_ticks, 0)
+
     def test_runtime_trash_cluster_respects_max_trash(self) -> None:
         random.seed(10)
         engine = SimulationEngine(
