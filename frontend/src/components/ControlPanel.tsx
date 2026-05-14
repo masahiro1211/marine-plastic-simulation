@@ -18,26 +18,6 @@ type BoolConfigKey = {
 }[keyof SimulationConfig] &
   keyof SimulationConfig;
 
-type PresetId = "easy" | "normal" | "hard";
-
-const PRESETS: Record<PresetId, { label: string; icon: string; overrides: Partial<SimulationConfig> }> = {
-  easy: {
-    label: "やさしい",
-    icon: "🐚",
-    overrides: { scout_count: 3, collector_count: 4, marine_life_count: 10, initial_trash_count: 12 },
-  },
-  normal: {
-    label: "ふつう",
-    icon: "🐟",
-    overrides: { scout_count: 2, collector_count: 3, marine_life_count: 18, initial_trash_count: 18 },
-  },
-  hard: {
-    label: "むずかしい",
-    icon: "🦈",
-    overrides: { scout_count: 1, collector_count: 2, marine_life_count: 26, initial_trash_count: 26 },
-  },
-};
-
 interface ControlPanelProps {
   connected: boolean;
   config: SimulationConfig;
@@ -48,9 +28,9 @@ interface ControlPanelProps {
 }
 
 /**
- * Render Reef Patrol mission controls — difficulty preset, fleet composition,
- * manual-control toggle, and start/reset actions. The panel keeps the same
- * external props as before so it can drop into App.tsx with no other changes.
+ * Render Reef Patrol mission controls — fleet composition, manual-control
+ * toggle, and start/reset actions. The panel keeps the same external props
+ * as before so it can drop into App.tsx with no other changes.
  *
  * @param props Component props.
  * @returns Mission control panel UI.
@@ -64,21 +44,10 @@ export default function ControlPanel({
   onReset,
 }: ControlPanelProps) {
   const [config, setConfig] = useState<SimulationConfig>(DEFAULT_SIMULATION_CONFIG);
-  const [preset, setPreset] = useState<PresetId>("normal");
 
   useEffect(() => {
     setConfig((prev) => ({ ...prev, ...incomingConfig }));
   }, [incomingConfig]);
-
-  /**
-   * Apply a difficulty preset over the current draft config.
-   *
-   * @param id Preset id to activate.
-   */
-  const handlePreset = (id: PresetId) => {
-    setPreset(id);
-    setConfig((prev) => ({ ...prev, ...PRESETS[id].overrides }));
-  };
 
   /**
    * Update one numeric config field in local form state.
@@ -112,32 +81,14 @@ export default function ControlPanel({
   return (
     <div className="bg-white text-[#1a3744] p-5 rounded-2xl w-[256px] shrink-0 border border-[#e2eef2] shadow-[0_1px_2px_rgba(15,80,100,0.03),0_8px_24px_-12px_rgba(15,80,100,0.12)]">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] tracking-[0.18em] font-bold text-[#7c95a0]">DIFFICULTY</span>
+        <span className="text-[10px] tracking-[0.18em] font-bold text-[#7c95a0]">SETUP</span>
         <span className={`text-[10px] font-semibold ${phaseTone}`}>{phase}</span>
       </div>
 
-      {/* Difficulty segmented */}
-      <div className="flex gap-[2px] bg-[#0b3a45]/[0.06] p-1 rounded-[14px] mb-5">
-        {(Object.keys(PRESETS) as PresetId[]).map((id) => {
-          const active = preset === id;
-          return (
-            <button
-              key={id}
-              onClick={() => handlePreset(id)}
-              className={`flex-1 py-2 rounded-[11px] flex flex-col items-center gap-[2px] text-xs transition-all cursor-pointer ${
-                active
-                  ? "bg-white text-[#0e6a7b] font-bold shadow-[0_2px_6px_rgba(11,58,69,0.1)]"
-                  : "text-[#5d7a85] font-medium"
-              }`}
-            >
-              <span className={`text-lg leading-none ${active ? "" : "grayscale-[0.5]"}`}>
-                {PRESETS[id].icon}
-              </span>
-              <span>{PRESETS[id].label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Intro */}
+      <p className="text-[12px] text-[#345461] leading-[1.55] bg-[#f4fafc] rounded-xl px-3 py-2.5 mb-5">
+        パラメータを変えて、色んな状況でシミュレーションしてみよう。
+      </p>
 
       {/* Fleet composition */}
       <div className="text-[10px] tracking-[0.18em] font-bold text-[#7c95a0] mb-2">

@@ -147,6 +147,7 @@ export interface SimulationSnapshot {
   stats: SimulationStats;
   score: ScoreState;
   events: SimulationEvent[];
+  discovered_trash_ids: string[];
 }
 
 /** Historical score and count entry returned by the stats endpoint. */

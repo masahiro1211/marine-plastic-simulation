@@ -47,6 +47,7 @@ interface SimulationState {
   score: ScoreState;
   config: SimulationConfig;
   base: BaseState;
+  discoveredTrashIds: string[];
   tick: number;
   phase: SimulationPhase;
   connected: boolean;
@@ -70,6 +71,7 @@ export default function useSimulation(): SimulationState {
   const [score, setScore] = useState<ScoreState>(DEFAULT_SCORE);
   const [config, setConfig] = useState<SimulationConfig>(DEFAULT_SIMULATION_CONFIG);
   const [base, setBase] = useState<BaseState>(DEFAULT_BASE);
+  const [discoveredTrashIds, setDiscoveredTrashIds] = useState<string[]>([]);
   const [tick, setTick] = useState<number>(0);
   const [phase, setPhase] = useState<SimulationPhase>("idle");
   const [connected, setConnected] = useState<boolean>(false);
@@ -92,6 +94,7 @@ export default function useSimulation(): SimulationState {
     if (data.base) {
       setBase(data.base);
     }
+    setDiscoveredTrashIds(data.discovered_trash_ids ?? []);
   }, []);
 
   /**
@@ -216,6 +219,7 @@ export default function useSimulation(): SimulationState {
     score,
     config,
     base,
+    discoveredTrashIds,
     tick,
     phase,
     connected,
