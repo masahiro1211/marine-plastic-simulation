@@ -6,16 +6,17 @@
 
 - 作業ブランチ: `ogawa`
 - 同期元: `origin/develop`
-- 同期元最新 commit: `069cbfe`
-- 同期後 merge commit: `847c6d5`
+- 同期元最新 commit: `1d87a1f`
+- 同期後 merge commit: `2e4bd6e`
 
 ## 実施内容
 
 1. `origin/develop` の最新化を確認し、`ogawa` にマージした。
-2. マージ時のテキスト conflict は発生しなかった。
-3. `backend/app/simulation/engine.py` は `develop` と `ogawa` の両方で変更があったため、結合後の挙動を再確認した。
-4. 手動 Collector が満載状態で基地へ戻った tick に、基地上の他ロボットとの衝突で停止ペナルティを受ける問題を修正した。
-5. 修正内容に regression test と runtime docs を追加した。
+2. 追加で `origin/develop` に merge された PR #30 も再 fetch して `ogawa` にマージした。
+3. どちらのマージでもテキスト conflict は発生しなかった。
+4. `backend/app/simulation/engine.py` は `develop` と `ogawa` の両方で変更があったため、結合後の挙動を再確認した。
+5. 手動 Collector が満載状態で基地へ戻った tick に、基地上の他ロボットとの衝突で停止ペナルティを受ける問題を修正した。
+6. 修正内容に regression test と runtime docs を追加した。
 
 ## 修正点
 
@@ -48,8 +49,11 @@
 - ControlPanel と StatsPanel の整理
 - `discovered_trash_ids` snapshot contract
 - score 計算から energy bonus を除外する変更
+- 魚モデルの 3 種類化と `species_id` による 3D model 切替
 
 結合後、`discovered_trash_ids` と score 変更は保持されている。手動 Collector の納品直後停止修正も保持されている。
+
+追加 merge された PR #30 については、`frontend/public/models/fish_2.glb`、`frontend/public/models/fish_3.glb`、`frontend/src/components/Canvas3D.tsx` を取り込み、既存の GLB asset validation と frontend build で結合後の不具合がないことを確認した。
 
 ## 検証結果
 
@@ -63,4 +67,3 @@
   - passed
 
 ローカルの `python3 -m unittest discover -s tests` は、ホスト側に `pydantic` が未インストールのため import error で実行不可だった。依存が揃う docker backend 環境では全 backend tests が成功している。
-
