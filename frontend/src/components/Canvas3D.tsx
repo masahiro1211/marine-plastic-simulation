@@ -216,9 +216,19 @@ function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
     <group>
       <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
       {discovered && (
-        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[14, 18, 48]} />
-          <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
+        <mesh
+          position={[0, -7, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          renderOrder={1}
+        >
+          <ringGeometry args={[25, 34, 48]} />
+          <meshBasicMaterial
+            color="#ef4444"
+            transparent
+            opacity={0.9}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
         </mesh>
       )}
     </group>
