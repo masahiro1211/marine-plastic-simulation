@@ -1,6 +1,6 @@
 import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { AgentState, BaseState } from "../types";
@@ -12,12 +12,18 @@ useGLTF.preload("/models/collector.glb");
 useGLTF.preload("/models/fish.glb");
 useGLTF.preload("/models/fish_2.glb");
 useGLTF.preload("/models/fish_3.glb");
+useGLTF.preload("/models/scout.glb");
+useGLTF.preload("/models/can.glb");
+useGLTF.preload("/models/plastic_bottle.glb");
 
 const FISH_MODEL_BY_SPECIES: Record<number, string> = {
   0: "/models/fish.glb",
   1: "/models/fish_2.glb",
   2: "/models/fish_3.glb",
 };
+
+const CAN_SCALE = 140;
+const BOTTLE_SCALE = 70;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -94,23 +100,29 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
   );
 }
 
+const SCOUT_YAW_OFFSET = Math.PI;
+const SCOUT_BASE_SCALE = 4;
+
 function ScoutMesh({ agent }: { agent: AgentState }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(() => {
-    const g = ref.current;
-    if (!g) return;
-    const { vx, vy } = agent;
-    if (vx * vx + vy * vy > 1e-3) {
-      g.rotation.y = Math.atan2(vx, vy);
-    }
-  });
+  const { scene, animations } = useGLTF("/models/scout.glb");
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions, names } = useAnimations(animations, cloned);
+
+  useEffect(() => {
+    const first = names[0];
+    if (!first) return;
+    const action = actions[first];
+    if (!action) return;
+    action.reset().fadeIn(0.2).play();
+    return () => {
+      action.fadeOut(0.2);
+    };
+  }, [actions, names]);
+
   return (
-    <group ref={ref}>
-      <mesh>
-        <coneGeometry args={[5, 14, 4]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.4} />
-      </mesh>
-    </group>
+    <TurnTowardVelocity agent={agent} yawOffset={SCOUT_YAW_OFFSET}>
+      <primitive object={cloned} scale={SCOUT_BASE_SCALE} />
+    </TurnTowardVelocity>
   );
 }
 
@@ -191,6 +203,29 @@ function hashAgentId(id: string): number {
 }
 
 function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
+  const canGltf = useGLTF("/models/can.glb");
+  const bottleGltf = useGLTF("/models/plastic_bottle.glb");
+  const h = hashAgentId(id);
+  const useCan = (h & 1) === 0;
+  const sourceScene = useCan ? canGltf.scene : bottleGltf.scene;
+  const scale = useCan ? CAN_SCALE : BOTTLE_SCALE;
+  const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
+  const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
+
+  return (
+    <group>
+      <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
+      {discovered && (
+        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[14, 18, 48]} />
+          <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function TrashFallback({ id, discovered }: { id: string; discovered: boolean }) {
   const h = hashAgentId(id);
   const color = (h & 1) === 0 ? "#f97316" : "#facc15";
   const rotation = useMemo<[number, number, number]>(() => {
@@ -237,7 +272,11 @@ function AgentNode({
           <OrcaPredator agent={agent} />
         </ModelErrorBoundary>
       )}
-      {agent.agent_type === "scout" && <ScoutMesh agent={agent} />}
+      {agent.agent_type === "scout" && (
+        <ModelErrorBoundary fallback={<ScoutFallback agent={agent} />}>
+          <ScoutMesh agent={agent} />
+        </ModelErrorBoundary>
+      )}
       {agent.agent_type === "collector" && (
         <ModelErrorBoundary fallback={<CollectorFallback agent={agent} />}>
           <CollectorMesh agent={agent} />
@@ -248,8 +287,23 @@ function AgentNode({
           <FishMesh agent={agent} />
         </ModelErrorBoundary>
       )}
-      {agent.agent_type === "trash" && <TrashMesh id={agent.id} discovered={discovered} />}
+      {agent.agent_type === "trash" && (
+        <ModelErrorBoundary fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
+          <TrashMesh id={agent.id} discovered={discovered} />
+        </ModelErrorBoundary>
+      )}
     </group>
+  );
+}
+
+function ScoutFallback({ agent }: { agent: AgentState }) {
+  return (
+    <TurnTowardVelocity agent={agent}>
+      <mesh>
+        <coneGeometry args={[5, 14, 4]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.4} />
+      </mesh>
+    </TurnTowardVelocity>
   );
 }
 
@@ -325,6 +379,59 @@ function computeFitDistance(
   const distV = height * 0.5 / Math.tan(fovV / 2);
   const distH = width * 0.5 / Math.tan(fovH / 2);
   return Math.max(distV, distH) * margin;
+}
+
+function FieldGrid({
+  width,
+  height,
+  divisions = 20,
+  color = "#1e3a5f",
+}: {
+  width: number;
+  height: number;
+  divisions?: number;
+  color?: string;
+}) {
+  const geometry = useMemo(() => {
+    const cellSize = Math.max(width, height) / divisions;
+    const w2 = width / 2;
+    const h2 = height / 2;
+    const verts: number[] = [];
+    for (let z = -h2; z <= h2 + 0.001; z += cellSize) {
+      verts.push(-w2, 0, z, w2, 0, z);
+    }
+    for (let x = -w2; x <= w2 + 0.001; x += cellSize) {
+      verts.push(x, 0, -h2, x, 0, h2);
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    return geom;
+  }, [width, height, divisions]);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return (
+    <lineSegments geometry={geometry} position={[0, 0.1, 0]}>
+      <lineBasicMaterial color={color} />
+    </lineSegments>
+  );
+}
+
+function SceneBackground() {
+  const texture = useTexture("/assets/images/underwater-background.png");
+  const { scene } = useThree();
+  useMemo(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+  }, [texture]);
+  useEffect(() => {
+    const prev = scene.background;
+    scene.background = texture;
+    return () => {
+      scene.background = prev;
+    };
+  }, [scene, texture]);
+  return null;
 }
 
 function CameraPresetController({
@@ -405,24 +512,26 @@ export default function Canvas3D({
           height={height}
           margin={margin}
         />
-        <color attach="background" args={["#0c4a72"]} />
-        <ambientLight intensity={0.85} />
-        <directionalLight position={[200, 400, 200]} intensity={1.3} castShadow />
-        <directionalLight position={[-200, 200, -100]} intensity={0.55} color="#5eead4" />
+        <Suspense fallback={<color attach="background" args={["#0c4a72"]} />}>
+          <SceneBackground />
+        </Suspense>
+        <ambientLight intensity={1.1} />
+        <hemisphereLight args={["#bae6fd", "#0c2740", 0.8]} />
+        <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
+        <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
 
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
           <planeGeometry args={[width, height]} />
           <meshStandardMaterial
             color="#1a5e8a"
             metalness={0.15}
             roughness={0.7}
+            transparent
+            opacity={0.35}
           />
         </mesh>
 
-        <gridHelper
-          args={[Math.max(width, height), 20, "#1e3a5f", "#0f2a4a"]}
-          position={[0, 0.1, 0]}
-        />
+        <FieldGrid width={width} height={height} divisions={20} />
 
         {base && (
           <group position={[base.x - cx, 0, base.y - cz]}>
