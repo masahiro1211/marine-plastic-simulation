@@ -76,6 +76,7 @@ class MarineLifeContactTests(unittest.TestCase):
 
     def test_fish_eats_nearby_trash(self) -> None:
         engine = self._build_engine()
+        engine.fish_eat_probability = 1.0
         fish = self._freeze_fish()
         trash = Trash(x=405, y=300, drift_speed=0.0)
         trash.vx = 0.0
@@ -90,6 +91,34 @@ class MarineLifeContactTests(unittest.TestCase):
         self.assertEqual(fish.speed, 0.0)
         self.assertNotIn(fish.status, {"sick", "lost"})
 
+    def test_fish_skip_nearby_trash_when_secondly_probability_is_zero(self) -> None:
+        engine = self._build_engine()
+        engine.fish_eat_probability = 0.0
+        fish = self._freeze_fish()
+        trash = Trash(x=405, y=300, drift_speed=0.0)
+        trash.vx = 0.0
+        trash.vy = 0.0
+        engine.agents.extend([fish, trash])
+
+        fish.update(engine)
+
+        self.assertTrue(trash.alive)
+        self.assertEqual(engine.fish_ate_trash, 0)
+
+    def test_fish_eat_probability_refreshes_once_per_second(self) -> None:
+        engine = self._build_engine(tick_interval_ms=50)
+        engine.tick = 1
+        engine._update_fish_eat_probability()
+        first = engine.fish_eat_probability
+
+        engine.tick = 19
+        engine._update_fish_eat_probability()
+        self.assertEqual(engine.fish_eat_probability, first)
+
+        engine.tick = 20
+        engine._update_fish_eat_probability()
+        self.assertNotEqual(engine._fish_eat_probability_second, 0)
+
     def test_no_stress_field_on_snapshot(self) -> None:
         engine = self._build_engine(marine_life_count=1)
         snapshot = engine.get_snapshot()
@@ -102,6 +131,7 @@ class MarineLifeContactTests(unittest.TestCase):
 
     def test_stats_counters_reset_on_engine_reset(self) -> None:
         engine = self._build_engine()
+        engine.fish_eat_probability = 1.0
         fish = self._freeze_fish()
         scout = Scout(x=400, y=300, speed=0.0, sensor_radius=10.0, max_energy=100.0)
         trash = Trash(x=405, y=300, drift_speed=0.0)

@@ -88,11 +88,11 @@ class SimulationConfig(BaseModel):
 
     scout_count: int = Field(default=2, ge=0, le=20)
     collector_count: int = Field(default=3, ge=0, le=20)
-    marine_life_count: int = Field(default=18, ge=0, le=200)
+    marine_life_count: int = Field(default=36, ge=0, le=200)
     initial_trash_count: int = Field(default=18, ge=0, le=500)
 
-    scout_speed: float = Field(default=2.2, ge=0, le=20)
-    collector_speed: float = Field(default=1.8, ge=0, le=20)
+    scout_speed: float = Field(default=4.4, ge=0, le=20)
+    collector_speed: float = Field(default=3.6, ge=0, le=20)
     marine_life_speed: float = Field(default=3.2, ge=0, le=20)
     trash_drift_speed: float = Field(default=0.35, ge=0, le=10)
 
@@ -325,6 +325,7 @@ class SimulationSnapshot(BaseModel):
         stats: Aggregated counts for the current tick.
         score: Score breakdown for the current tick.
         events: Events generated during the current tick.
+        discovered_trash_ids: Trash IDs that scouts have reported.
     """
 
     tick: int
@@ -335,3 +336,4 @@ class SimulationSnapshot(BaseModel):
     stats: SimulationStats
     score: ScoreState
     events: list[SimulationEvent]
+    discovered_trash_ids: list[str] = []

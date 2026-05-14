@@ -7,6 +7,7 @@ class Collector(BaseAgent):
     AGENT_TYPE = "collector"
     ROLE = "collector"
     DEFAULT_RADIUS = 11.0
+    MANUAL_COLLISION_SPEED_FACTOR = 0.35
 
     def __init__(
         self, x: float, y: float, speed: float, sensor_radius: float, pickup_radius: float, max_energy: float,
@@ -31,6 +32,7 @@ class Collector(BaseAgent):
             "sensor_radius": self.sensor_radius,
             "pickup_radius": self.pickup_radius,
             "carrying": self.carrying_trash_id is not None,
+            "carrying_trash_id": self.carrying_trash_id,
             "is_manual": self.is_manual,
             "slowdown_ticks": self.slowdown_ticks,
             "is_upgraded": self.is_upgraded
@@ -51,11 +53,11 @@ class Collector(BaseAgent):
             self.speed *= 3.0  # PRの記載に合わせて3倍
             self.is_upgraded = True
 
-        # 衝突ペナルティの減速処理 (完全停止)
+        # 衝突ペナルティ中も完全停止にはしない。操作不能に見えるため低速操作を維持する。
         speed_multiplier = 1.0
         if self.is_manual and self.slowdown_ticks > 0:
             self.slowdown_ticks -= 1
-            speed_multiplier = 0.0
+            speed_multiplier = self.MANUAL_COLLISION_SPEED_FACTOR
 
         current_speed = self.speed * speed_multiplier
 

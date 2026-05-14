@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Canvas from "./components/Canvas";
 import type { CameraPreset } from "./components/Canvas3D";
-import ControlPanel from "./components/ControlPanel";
+import ControlPanel, { GAMEPAD_CONTROL_COUNT } from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
 import useSimulation from "./hooks/useSimulation";
+import type { SimulationConfig } from "./types";
 
 const Canvas3D = lazy(() => import("./components/Canvas3D"));
 
@@ -17,6 +18,9 @@ const MOVEMENT_KEYS = new Set([
   "arrowleft",
   "arrowright",
 ]);
+
+const GAMEPAD_AXIS_DEADZONE = 0.18;
+const GAMEPAD_DIRECTION_REPEAT_MS = 150;
 
 /**
  * Render the main simulation dashboard. Center Canvas, agent logic, and
@@ -32,6 +36,7 @@ export default function App() {
     score,
     config,
     base,
+    discoveredTrashIds,
     tick,
     phase,
     connected,
@@ -44,8 +49,47 @@ export default function App() {
 
   const keysPressed = useRef(new Set<string>());
   const lastDir = useRef({ dx: 0, dy: 0 });
+  const [panelConfig, setPanelConfig] = useState<SimulationConfig>(config);
+  const panelConfigRef = useRef(panelConfig);
+  const connectedRef = useRef(connected);
+  const configRef = useRef(config);
+  const gamepadButtonsRef = useRef({ a: false, b: false });
+  const gamepadRepeatRef = useRef({
+    lastVerticalAt: 0,
+    lastHorizontalAt: 0,
+    vertical: 0,
+    horizontal: 0,
+  });
+  const gamepadLastMoveRef = useRef({ dx: 0, dy: 0 });
+  const [gamepadPanelMode, setGamepadPanelMode] = useState(false);
+  const gamepadPanelModeRef = useRef(false);
+  const [gamepadSelectedIndex, setGamepadSelectedIndex] = useState(0);
+  const [gamepadAdjustment, setGamepadAdjustment] = useState<{
+    nonce: number;
+    direction: -1 | 1;
+  } | null>(null);
   const [view, setView] = useState<"2d" | "3d">("3d");
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>("angle");
+
+  useEffect(() => {
+    setPanelConfig(config);
+  }, [config]);
+
+  useEffect(() => {
+    panelConfigRef.current = panelConfig;
+  }, [panelConfig]);
+
+  useEffect(() => {
+    connectedRef.current = connected;
+  }, [connected]);
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
+
+  useEffect(() => {
+    gamepadPanelModeRef.current = gamepadPanelMode;
+  }, [gamepadPanelMode]);
 
   useEffect(() => {
     if (!connected || config.enable_manual_robot === false) return;
@@ -101,13 +145,119 @@ export default function App() {
    *
    * @param nextConfig New configuration to apply.
    */
-  const handleReset = async (nextConfig: typeof config): Promise<void> => {
+  const handleReset = useCallback(async (nextConfig: typeof config): Promise<void> => {
     if (connected) {
       reset(nextConfig);
       return;
     }
     await resetViaApi(nextConfig);
-  };
+  }, [connected, reset, resetViaApi]);
+
+  useEffect(() => {
+    let frameId = 0;
+
+    const normalizeAxis = (value: number | undefined): number => {
+      const axis = value ?? 0;
+      return Math.abs(axis) < GAMEPAD_AXIS_DEADZONE ? 0 : axis;
+    };
+
+    const emitRobotMove = (dx: number, dy: number) => {
+      const roundedDx = Number(dx.toFixed(2));
+      const roundedDy = Number(dy.toFixed(2));
+      const last = gamepadLastMoveRef.current;
+      if (Math.abs(roundedDx - last.dx) < 0.04 && Math.abs(roundedDy - last.dy) < 0.04) {
+        return;
+      }
+      gamepadLastMoveRef.current = { dx: roundedDx, dy: roundedDy };
+      manualMove(roundedDx, roundedDy);
+    };
+
+    const toggleSimulation = () => {
+      if (connectedRef.current) {
+        disconnect();
+        return;
+      }
+      void handleReset(panelConfigRef.current).then(() => connect());
+    };
+
+    const pollGamepad = () => {
+      const gamepad = navigator.getGamepads?.().find((pad) => pad !== null);
+      if (gamepad) {
+        const aPressed = Boolean(gamepad.buttons[0]?.pressed);
+        const bPressed = Boolean(gamepad.buttons[1]?.pressed);
+        const previous = gamepadButtonsRef.current;
+
+        if (aPressed && !previous.a) {
+          setGamepadPanelMode((current) => {
+            const next = !current;
+            if (next) {
+              manualMove(0, 0);
+              gamepadLastMoveRef.current = { dx: 0, dy: 0 };
+            }
+            return next;
+          });
+        }
+
+        if (bPressed && !previous.b) {
+          toggleSimulation();
+        }
+
+        gamepadButtonsRef.current = { a: aPressed, b: bPressed };
+
+        const axisX = normalizeAxis(gamepad.axes[0]);
+        const axisY = normalizeAxis(gamepad.axes[1]);
+        const dpadLeft = Boolean(gamepad.buttons[14]?.pressed);
+        const dpadRight = Boolean(gamepad.buttons[15]?.pressed);
+        const dpadUp = Boolean(gamepad.buttons[12]?.pressed);
+        const dpadDown = Boolean(gamepad.buttons[13]?.pressed);
+
+        if (gamepadPanelModeRef.current) {
+          const now = performance.now();
+          const vertical = axisY < -0.55 || dpadUp ? -1 : axisY > 0.55 || dpadDown ? 1 : 0;
+          const horizontal = axisX < -0.55 || dpadLeft ? -1 : axisX > 0.55 || dpadRight ? 1 : 0;
+          const repeat = gamepadRepeatRef.current;
+
+          if (
+            vertical !== 0 &&
+            (vertical !== repeat.vertical || now - repeat.lastVerticalAt > GAMEPAD_DIRECTION_REPEAT_MS)
+          ) {
+            setGamepadSelectedIndex((current) =>
+              (current + vertical + GAMEPAD_CONTROL_COUNT) % GAMEPAD_CONTROL_COUNT,
+            );
+            repeat.vertical = vertical;
+            repeat.lastVerticalAt = now;
+          } else if (vertical === 0) {
+            repeat.vertical = 0;
+          }
+
+          if (
+            horizontal !== 0 &&
+            (horizontal !== repeat.horizontal || now - repeat.lastHorizontalAt > GAMEPAD_DIRECTION_REPEAT_MS)
+          ) {
+            setGamepadAdjustment((prev) => ({
+              nonce: (prev?.nonce ?? 0) + 1,
+              direction: horizontal as -1 | 1,
+            }));
+            repeat.horizontal = horizontal;
+            repeat.lastHorizontalAt = now;
+          } else if (horizontal === 0) {
+            repeat.horizontal = 0;
+          }
+        } else if (connectedRef.current && configRef.current.enable_manual_robot !== false) {
+          emitRobotMove(axisX, axisY);
+        }
+      }
+
+      frameId = window.requestAnimationFrame(pollGamepad);
+    };
+
+    frameId = window.requestAnimationFrame(pollGamepad);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      manualMove(0, 0);
+    };
+  }, [connect, disconnect, handleReset, manualMove]);
 
   const totalSteps = config.steps;
   const cappedTick = Math.min(tick, totalSteps);
@@ -137,10 +287,10 @@ export default function App() {
             </svg>
             <div>
               <div className="text-[20px] font-bold tracking-[-0.02em] text-[#0e6a7b] leading-tight">
-                海洋清掃ロボット シミュレーション
+                ロボットシミュレーションゲーム
               </div>
               <p className="text-[11px] text-[#5d7a85] leading-[1.55] mt-1 max-w-[640px]">
-                スカウトロボットが海に漂うごみを見つけ、コレクターロボットがそれを基地まで運びます。
+                スカウト機が海に漂うごみを見つけ、コレクター機がそれを基地まで運びます。
                 <br />
                 魚たちは群れで泳ぎながらロボットを避け、ときどき近くに流れてきたごみを食べてしまいます。
               </p>
@@ -192,6 +342,10 @@ export default function App() {
             onConnect={connect}
             onDisconnect={disconnect}
             onReset={handleReset}
+            onConfigChange={setPanelConfig}
+            gamepadFocused={gamepadPanelMode}
+            gamepadSelectedIndex={gamepadSelectedIndex}
+            gamepadAdjustment={gamepadAdjustment}
           />
           <div className="flex-1 min-w-0 flex flex-col items-center gap-2">
             <div className="flex flex-wrap gap-2 self-end items-center">
@@ -246,6 +400,7 @@ export default function App() {
                 <Canvas3D
                   agents={agents}
                   base={base}
+                  discoveredTrashIds={discoveredTrashIds}
                   width={config.width}
                   height={config.height}
                   cameraPreset={cameraPreset}

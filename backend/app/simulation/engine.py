@@ -41,13 +41,15 @@ class SharedTarget:
 
 @dataclass(frozen=True)
 class TrashSource:
-    """Weighted trash input source used by the simplified source-to-transport model."""
+    """Active trash input source with pressure-driven ABM emission dynamics."""
 
     source_id: str
     x: float
     y: float
     weight: float
     spread_radius: float
+    retention: float
+    volatility: float
 
 
 class SimulationEngine:
@@ -81,6 +83,9 @@ class SimulationEngine:
         self.collisions = 0
         self.robot_fish_contacts = 0
         self.fish_ate_trash = 0
+        self.fish_eat_probability = 0.0
+        self._fish_eat_probability_second = -1
+        self._trash_source_pressure: dict[str, float] = {}
         self._init_agents()
 
     def _init_agents(self) -> None:
@@ -94,6 +99,12 @@ class SimulationEngine:
         self.collisions = 0
         self.robot_fish_contacts = 0
         self.fish_ate_trash = 0
+        self.fish_eat_probability = 0.0
+        self._fish_eat_probability_second = -1
+        self._trash_source_pressure = {
+            source.source_id: random.uniform(0.0, max(source.weight, 0.0) * 0.6)
+            for source in self._trash_sources()
+        }
         self.base = BaseState(
             x=self.config.width / 2,
             y=max(self.config.height - 36, 0),
@@ -237,6 +248,7 @@ class SimulationEngine:
 
         self.tick += 1
         self.current_events = []
+        self._update_fish_eat_probability()
 
         self._spawn_runtime_trash()
 
@@ -255,8 +267,8 @@ class SimulationEngine:
         for fish in marine_life_list:
             fish.update(self)
 
-        self._resolve_base_interactions()
         self._resolve_collisions()
+        self._resolve_base_interactions()
         self._cleanup_shared_targets()
         self._record_history()
 
@@ -381,10 +393,10 @@ class SimulationEngine:
             weights_by_profile["calm"],
         )
         return [
-            TrashSource("river_mouth", width * 0.18, height * 0.20, weights["river_mouth"], 48),
-            TrashSource("coastal_city", width * 0.82, height * 0.34, weights["coastal_city"], 64),
-            TrashSource("harbor", width * 0.50, max(height - 110, 30), weights["harbor"], 42),
-            TrashSource("offshore", width * 0.50, 26, weights["offshore"], 120),
+            TrashSource("river_mouth", width * 0.18, height * 0.20, weights["river_mouth"], 48, 0.72, 0.35),
+            TrashSource("coastal_city", width * 0.82, height * 0.34, weights["coastal_city"], 64, 0.58, 0.28),
+            TrashSource("harbor", width * 0.50, max(height - 110, 30), weights["harbor"], 42, 0.46, 0.22),
+            TrashSource("offshore", width * 0.50, 26, weights["offshore"], 120, 0.35, 0.42),
         ]
 
     def _select_trash_source(self) -> TrashSource:
@@ -413,6 +425,70 @@ class SimulationEngine:
             "harbor": 1,
         }.get(self.config.trash_source_profile, 0)
         return random.randint(lower, upper) + profile_bonus
+
+    def _simulation_second(self) -> int:
+        """Return the current wall-clock second represented by the tick counter."""
+        return int((self.tick * self.config.tick_interval_ms) / 1000)
+
+    def _update_fish_eat_probability(self) -> None:
+        """Refresh the fish ingestion probability once per simulated second."""
+        second = self._simulation_second()
+        if second == self._fish_eat_probability_second:
+            return
+        self._fish_eat_probability_second = second
+        self.fish_eat_probability = random.random()
+
+    def _source_environment_multiplier(self, source: TrashSource) -> float:
+        """Return a profile- and time-dependent source pressure multiplier.
+
+        The terms are intentionally simple but grounded in the literature:
+        riverine plastic inputs scale with runoff/rainfall and land-use pressure,
+        while transport and transformation after entry are affected by currents,
+        wind, waves, dispersion, fragmentation, beaching, and sinking.
+        """
+        seconds = self._simulation_second()
+        cycle = math.sin((seconds / 9.0) + len(source.source_id))
+        multiplier = 1.0 + 0.25 * cycle
+
+        if self.config.trash_source_profile == "rain":
+            if source.source_id == "river_mouth":
+                multiplier *= 2.1
+            elif source.source_id == "coastal_city":
+                multiplier *= 1.35
+        elif self.config.trash_source_profile == "storm":
+            multiplier *= 1.65
+            if source.source_id in {"offshore", "harbor"}:
+                multiplier *= 1.35
+        elif self.config.trash_source_profile == "harbor":
+            multiplier *= 1.85 if source.source_id == "harbor" else 0.85
+
+        jitter = random.uniform(-source.volatility, source.volatility)
+        return max(0.05, multiplier + jitter)
+
+    def _update_trash_source_pressures(self) -> None:
+        """Accumulate latent source pressure before runtime trash emission."""
+        for source in self._trash_sources():
+            previous = self._trash_source_pressure.get(source.source_id, 0.0)
+            inflow = max(source.weight, 0.0) * self._source_environment_multiplier(source)
+            retained = previous * source.retention
+            self._trash_source_pressure[source.source_id] = min(24.0, retained + inflow)
+
+    def _spawn_trash_burst_from_source(self, source: TrashSource, available_slots: int) -> int:
+        """Release a pressure-driven cluster from one source agent."""
+        pressure = self._trash_source_pressure.get(source.source_id, 0.0)
+        threshold = 3.0
+        if pressure < threshold and random.random() > pressure / threshold:
+            return 0
+
+        base_cluster = self._runtime_trash_cluster_size()
+        pressure_bonus = min(4, int(pressure // threshold))
+        count = min(available_slots, base_cluster + pressure_bonus)
+        if count <= 0:
+            return 0
+        for _ in range(count):
+            self._spawn_trash(source)
+        self._trash_source_pressure[source.source_id] = max(0.0, pressure - count * threshold)
+        return count
 
     def trash_current_vector(self) -> tuple[float, float]:
         """Return global current velocity contribution for trash."""
@@ -609,7 +685,7 @@ class SimulationEngine:
         fish.ate_trash_count += 1
 
     def _spawn_runtime_trash(self) -> None:
-        """Spawn periodic runtime trash when configuration allows it."""
+        """Spawn runtime trash from pressure-driven source agents."""
         if self.config.trash_spawn_interval <= 0:
             return
         if self.tick % self.config.trash_spawn_interval != 0:
@@ -620,8 +696,18 @@ class SimulationEngine:
         if self.config.trash_source_profile == "legacy":
             self._spawn_trash()
             return
-        for _ in range(min(self._runtime_trash_cluster_size(), available_slots)):
-            self._spawn_trash_from_source()
+        self._update_trash_source_pressures()
+        sources = self._trash_sources()
+        random.shuffle(sources)
+        sources.sort(
+            key=lambda source: self._trash_source_pressure.get(source.source_id, 0.0),
+            reverse=True,
+        )
+        for source in sources:
+            if available_slots <= 0:
+                return
+            spawned = self._spawn_trash_burst_from_source(source, available_slots)
+            available_slots -= spawned
 
     def _resolve_base_interactions(self) -> None:
         """Apply charging and trash delivery for robots inside base range."""
@@ -717,8 +803,7 @@ class SimulationEngine:
         energy_remaining = round(sum(robot.energy for robot in self.scouts + self.collectors), 2)
         total = round(
             self.delivered_trash * 12
-            - self.collisions * 2
-            + energy_remaining * 0.05,
+            - self.collisions * 2,
             2,
         )
         return ScoreState(
@@ -758,6 +843,7 @@ class SimulationEngine:
             stats=self._current_stats(),
             score=self._current_score(),
             events=self.current_events,
+            discovered_trash_ids=list(self.shared_targets.keys()),
         )
         return snapshot.model_dump()
 

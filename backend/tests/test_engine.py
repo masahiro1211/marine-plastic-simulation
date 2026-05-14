@@ -55,6 +55,34 @@ class SimulationEngineTests(unittest.TestCase):
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
 
+    def test_manual_collector_does_not_stop_on_delivery_collision(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=1,
+                marine_life_count=0,
+                initial_trash_count=0,
+                enable_manual_robot=True,
+                predator_count=0,
+                collector_speed=0,
+                random_weight=0,
+                trash_spawn_interval=0,
+                manual_penalty_ticks=50,
+            )
+        )
+        manual = next(agent for agent in engine.collectors if agent.is_manual)
+        auto = next(agent for agent in engine.collectors if not agent.is_manual)
+        manual.x = auto.x = engine.base.x
+        manual.y = auto.y = engine.base.y
+        manual.carrying_trash_id = "trash-delivery"
+
+        engine.start()
+        engine.step()
+
+        self.assertEqual(engine.delivered_trash, 1)
+        self.assertIsNone(manual.carrying_trash_id)
+        self.assertEqual(manual.slowdown_ticks, 0)
+
     def test_runtime_trash_cluster_respects_max_trash(self) -> None:
         random.seed(10)
         engine = SimulationEngine(
@@ -78,6 +106,37 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(len(engine.trash_items), 2)
         self.assertLessEqual(len(engine.trash_items), engine.config.max_trash)
+
+    def test_runtime_trash_uses_source_pressure_bursts(self) -> None:
+        random.seed(14)
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                initial_trash_count=0,
+                trash_spawn_interval=1,
+                max_trash=10,
+                trash_cluster_min=1,
+                trash_cluster_max=1,
+                trash_source_profile="rain",
+                enable_manual_robot=False,
+                predator_count=0,
+                steps=10,
+            )
+        )
+        engine._trash_source_pressure = {
+            "river_mouth": 9.0,
+            "coastal_city": 0.0,
+            "harbor": 0.0,
+            "offshore": 0.0,
+        }
+
+        engine.step()
+
+        self.assertGreaterEqual(len(engine.trash_items), 2)
+        self.assertLessEqual(len(engine.trash_items), engine.config.max_trash)
+        self.assertTrue(any(trash.source_id == "river_mouth" for trash in engine.trash_items))
 
     def test_source_profile_adds_source_metadata(self) -> None:
         random.seed(11)
@@ -184,5 +243,30 @@ class SimulationEngineTests(unittest.TestCase):
 
         # auto1 と auto2 は「初めてのペア」なので、クールダウンに関係なく即座にカウントされる
         self.assertEqual(engine.collisions, 3, "異なるペアの衝突は独立して即座にカウントされること")
+
+    def test_manual_collector_remains_controllable_during_collision_penalty(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                initial_trash_count=0,
+                enable_manual_robot=True,
+                predator_count=0,
+                collector_speed=4.0,
+                manual_penalty_ticks=10,
+                trash_spawn_interval=0,
+            )
+        )
+        manual = next(agent for agent in engine.collectors if agent.is_manual)
+        manual.apply_collision_penalty(engine.config.manual_penalty_ticks)
+        manual.manual_vx = 1.0
+        manual.manual_vy = 0.0
+
+        manual.update(engine)
+
+        self.assertGreater(manual.x, engine.config.width / 2)
+        self.assertGreater(manual.vx, 0.0)
+        self.assertEqual(manual.status, "slowed_down")
 if __name__ == "__main__":
     unittest.main()
