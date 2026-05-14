@@ -1,6 +1,6 @@
 import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { AgentState, BaseState } from "../types";
@@ -371,6 +371,59 @@ function computeFitDistance(
   return Math.max(distV, distH) * margin;
 }
 
+function FieldGrid({
+  width,
+  height,
+  divisions = 20,
+  color = "#1e3a5f",
+}: {
+  width: number;
+  height: number;
+  divisions?: number;
+  color?: string;
+}) {
+  const geometry = useMemo(() => {
+    const cellSize = Math.max(width, height) / divisions;
+    const w2 = width / 2;
+    const h2 = height / 2;
+    const verts: number[] = [];
+    for (let z = -h2; z <= h2 + 0.001; z += cellSize) {
+      verts.push(-w2, 0, z, w2, 0, z);
+    }
+    for (let x = -w2; x <= w2 + 0.001; x += cellSize) {
+      verts.push(x, 0, -h2, x, 0, h2);
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+    return geom;
+  }, [width, height, divisions]);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return (
+    <lineSegments geometry={geometry} position={[0, 0.1, 0]}>
+      <lineBasicMaterial color={color} />
+    </lineSegments>
+  );
+}
+
+function SceneBackground() {
+  const texture = useTexture("/assets/images/underwater-background.png");
+  const { scene } = useThree();
+  useMemo(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+  }, [texture]);
+  useEffect(() => {
+    const prev = scene.background;
+    scene.background = texture;
+    return () => {
+      scene.background = prev;
+    };
+  }, [scene, texture]);
+  return null;
+}
+
 function CameraPresetController({
   preset,
   width,
@@ -449,24 +502,26 @@ export default function Canvas3D({
           height={height}
           margin={margin}
         />
-        <color attach="background" args={["#0c4a72"]} />
-        <ambientLight intensity={0.85} />
-        <directionalLight position={[200, 400, 200]} intensity={1.3} castShadow />
-        <directionalLight position={[-200, 200, -100]} intensity={0.55} color="#5eead4" />
+        <Suspense fallback={<color attach="background" args={["#0c4a72"]} />}>
+          <SceneBackground />
+        </Suspense>
+        <ambientLight intensity={1.1} />
+        <hemisphereLight args={["#bae6fd", "#0c2740", 0.8]} />
+        <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
+        <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
 
-        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
           <planeGeometry args={[width, height]} />
           <meshStandardMaterial
             color="#1a5e8a"
             metalness={0.15}
             roughness={0.7}
+            transparent
+            opacity={0.35}
           />
         </mesh>
 
-        <gridHelper
-          args={[Math.max(width, height), 20, "#1e3a5f", "#0f2a4a"]}
-          position={[0, 0.1, 0]}
-        />
+        <FieldGrid width={width} height={height} divisions={20} />
 
         {base && (
           <group position={[base.x - cx, 0, base.y - cz]}>
