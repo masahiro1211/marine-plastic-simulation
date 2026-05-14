@@ -138,10 +138,10 @@ export default function App() {
             </svg>
             <div>
               <div className="text-[20px] font-bold tracking-[-0.02em] text-[#0e6a7b] leading-tight">
-                海洋清掃ロボット シミュレーション
+                ロボットシミュレーションゲーム
               </div>
               <p className="text-[11px] text-[#5d7a85] leading-[1.55] mt-1 max-w-[640px]">
-                スカウトロボットが海に漂うごみを見つけ、コレクターロボットがそれを基地まで運びます。
+                スカウト機が海に漂うごみを見つけ、コレクター機がそれを基地まで運びます。
                 <br />
                 魚たちは群れで泳ぎながらロボットを避け、ときどき近くに流れてきたごみを食べてしまいます。
               </p>
