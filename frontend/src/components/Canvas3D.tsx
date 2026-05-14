@@ -10,6 +10,14 @@ export type CameraPreset = "angle" | "top";
 useGLTF.preload("/models/orca.glb");
 useGLTF.preload("/models/collector.glb");
 useGLTF.preload("/models/fish.glb");
+useGLTF.preload("/models/fish_2.glb");
+useGLTF.preload("/models/fish_3.glb");
+
+const FISH_MODEL_BY_SPECIES: Record<number, string> = {
+  0: "/models/fish.glb",
+  1: "/models/fish_2.glb",
+  2: "/models/fish_3.glb",
+};
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -146,7 +154,9 @@ const FISH_YAW_OFFSET = Math.PI;
 const FISH_BASE_SCALE = 5;
 
 function FishMesh({ agent }: { agent: AgentState }) {
-  const { scene, animations } = useGLTF("/models/fish.glb");
+  const speciesId = Number(agent.metadata?.species_id ?? 0);
+  const modelPath = FISH_MODEL_BY_SPECIES[speciesId] ?? FISH_MODEL_BY_SPECIES[0];
+  const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions, names } = useAnimations(animations, cloned);
 
