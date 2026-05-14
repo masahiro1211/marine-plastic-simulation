@@ -758,6 +758,7 @@ class SimulationEngine:
             stats=self._current_stats(),
             score=self._current_score(),
             events=self.current_events,
+            discovered_trash_ids=list(self.shared_targets.keys()),
         )
         return snapshot.model_dump()
 

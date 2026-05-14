@@ -10,6 +10,12 @@ export type CameraPreset = "angle" | "top";
 useGLTF.preload("/models/orca.glb");
 useGLTF.preload("/models/collector.glb");
 useGLTF.preload("/models/fish.glb");
+useGLTF.preload("/models/scout.glb");
+useGLTF.preload("/models/can.glb");
+useGLTF.preload("/models/plastic_bottle.glb");
+
+const CAN_SCALE = 140;
+const BOTTLE_SCALE = 70;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -86,23 +92,29 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
   );
 }
 
+const SCOUT_YAW_OFFSET = Math.PI;
+const SCOUT_BASE_SCALE = 4;
+
 function ScoutMesh({ agent }: { agent: AgentState }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame(() => {
-    const g = ref.current;
-    if (!g) return;
-    const { vx, vy } = agent;
-    if (vx * vx + vy * vy > 1e-3) {
-      g.rotation.y = Math.atan2(vx, vy);
-    }
-  });
+  const { scene, animations } = useGLTF("/models/scout.glb");
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const { actions, names } = useAnimations(animations, cloned);
+
+  useEffect(() => {
+    const first = names[0];
+    if (!first) return;
+    const action = actions[first];
+    if (!action) return;
+    action.reset().fadeIn(0.2).play();
+    return () => {
+      action.fadeOut(0.2);
+    };
+  }, [actions, names]);
+
   return (
-    <group ref={ref}>
-      <mesh>
-        <coneGeometry args={[5, 14, 4]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.4} />
-      </mesh>
-    </group>
+    <TurnTowardVelocity agent={agent} yawOffset={SCOUT_YAW_OFFSET}>
+      <primitive object={cloned} scale={SCOUT_BASE_SCALE} />
+    </TurnTowardVelocity>
   );
 }
 
@@ -181,6 +193,29 @@ function hashAgentId(id: string): number {
 }
 
 function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
+  const canGltf = useGLTF("/models/can.glb");
+  const bottleGltf = useGLTF("/models/plastic_bottle.glb");
+  const h = hashAgentId(id);
+  const useCan = (h & 1) === 0;
+  const sourceScene = useCan ? canGltf.scene : bottleGltf.scene;
+  const scale = useCan ? CAN_SCALE : BOTTLE_SCALE;
+  const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
+  const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
+
+  return (
+    <group>
+      <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
+      {discovered && (
+        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[14, 18, 48]} />
+          <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function TrashFallback({ id, discovered }: { id: string; discovered: boolean }) {
   const h = hashAgentId(id);
   const color = (h & 1) === 0 ? "#f97316" : "#facc15";
   const rotation = useMemo<[number, number, number]>(() => {
@@ -227,7 +262,11 @@ function AgentNode({
           <OrcaPredator agent={agent} />
         </ModelErrorBoundary>
       )}
-      {agent.agent_type === "scout" && <ScoutMesh agent={agent} />}
+      {agent.agent_type === "scout" && (
+        <ModelErrorBoundary fallback={<ScoutFallback agent={agent} />}>
+          <ScoutMesh agent={agent} />
+        </ModelErrorBoundary>
+      )}
       {agent.agent_type === "collector" && (
         <ModelErrorBoundary fallback={<CollectorFallback agent={agent} />}>
           <CollectorMesh agent={agent} />
@@ -238,8 +277,23 @@ function AgentNode({
           <FishMesh agent={agent} />
         </ModelErrorBoundary>
       )}
-      {agent.agent_type === "trash" && <TrashMesh id={agent.id} discovered={discovered} />}
+      {agent.agent_type === "trash" && (
+        <ModelErrorBoundary fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
+          <TrashMesh id={agent.id} discovered={discovered} />
+        </ModelErrorBoundary>
+      )}
     </group>
+  );
+}
+
+function ScoutFallback({ agent }: { agent: AgentState }) {
+  return (
+    <TurnTowardVelocity agent={agent}>
+      <mesh>
+        <coneGeometry args={[5, 14, 4]} />
+        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.4} />
+      </mesh>
+    </TurnTowardVelocity>
   );
 }
 

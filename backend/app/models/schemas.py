@@ -325,6 +325,7 @@ class SimulationSnapshot(BaseModel):
         stats: Aggregated counts for the current tick.
         score: Score breakdown for the current tick.
         events: Events generated during the current tick.
+        discovered_trash_ids: Trash IDs that scouts have reported.
     """
 
     tick: int
@@ -335,3 +336,4 @@ class SimulationSnapshot(BaseModel):
     stats: SimulationStats
     score: ScoreState
     events: list[SimulationEvent]
+    discovered_trash_ids: list[str] = []
