@@ -25,7 +25,13 @@ interface ControlPanelProps {
   onConnect: () => void;
   onDisconnect: () => void;
   onReset: (nextConfig: SimulationConfig) => void | Promise<void>;
+  onConfigChange?: (nextConfig: SimulationConfig) => void;
+  gamepadFocused?: boolean;
+  gamepadSelectedIndex?: number;
+  gamepadAdjustment?: { nonce: number; direction: -1 | 1 } | null;
 }
+
+const GAMEPAD_CONTROL_COUNT = 4;
 
 /**
  * Render Reef Patrol mission controls — fleet composition, manual-control
@@ -42,6 +48,10 @@ export default function ControlPanel({
   onConnect,
   onDisconnect,
   onReset,
+  onConfigChange,
+  gamepadFocused = false,
+  gamepadSelectedIndex = 0,
+  gamepadAdjustment = null,
 }: ControlPanelProps) {
   const [config, setConfig] = useState<SimulationConfig>(DEFAULT_SIMULATION_CONFIG);
 
@@ -55,8 +65,18 @@ export default function ControlPanel({
    * @param key Configuration key to change.
    * @param value Next numeric value.
    */
+  const updateConfig = (
+    updater: (previous: SimulationConfig) => SimulationConfig,
+  ) => {
+    setConfig((prev) => {
+      const next = updater(prev);
+      onConfigChange?.(next);
+      return next;
+    });
+  };
+
   const handleNumber = (key: NumericConfigKey, value: number) => {
-    setConfig((prev) => ({ ...prev, [key]: value }));
+    updateConfig((prev) => ({ ...prev, [key]: value }));
   };
 
   /**
@@ -66,8 +86,33 @@ export default function ControlPanel({
    * @param checked Next checkbox value.
    */
   const handleToggle = (key: BoolConfigKey, checked: boolean) => {
-    setConfig((prev) => ({ ...prev, [key]: checked }));
+    updateConfig((prev) => ({ ...prev, [key]: checked }));
   };
+
+  useEffect(() => {
+    if (!gamepadFocused || !gamepadAdjustment) return;
+
+    const selectedIndex = Math.max(
+      0,
+      Math.min(GAMEPAD_CONTROL_COUNT - 1, gamepadSelectedIndex),
+    );
+    const direction = gamepadAdjustment.direction;
+
+    if (selectedIndex === 0) {
+      handleNumber("scout_count", clampNumber(config.scout_count + direction, 1, 6));
+    } else if (selectedIndex === 1) {
+      handleNumber("collector_count", clampNumber(config.collector_count + direction, 1, 6));
+    } else if (selectedIndex === 2) {
+      handleNumber("steps", clampNumber(config.steps + direction * 50, 200, 2000));
+    } else if (selectedIndex === 3) {
+      handleToggle("enable_manual_robot", !config.enable_manual_robot);
+    }
+  }, [gamepadAdjustment, gamepadFocused, gamepadSelectedIndex]);
+
+  const focusClass = (index: number) =>
+    gamepadFocused && gamepadSelectedIndex === index
+      ? "ring-2 ring-[#0e6a7b] ring-offset-2 ring-offset-white"
+      : "";
 
   const phaseTone =
     phase === "running"
@@ -100,6 +145,7 @@ export default function ControlPanel({
           value={config.scout_count}
           min={1}
           max={6}
+          className={focusClass(0)}
           onChange={(v) => handleNumber("scout_count", v)}
         />
         <SliderField
@@ -107,6 +153,7 @@ export default function ControlPanel({
           value={config.collector_count}
           min={1}
           max={6}
+          className={focusClass(1)}
           onChange={(v) => handleNumber("collector_count", v)}
         />
         <SliderField
@@ -116,12 +163,13 @@ export default function ControlPanel({
           max={2000}
           step={50}
           unit="t"
+          className={focusClass(2)}
           onChange={(v) => handleNumber("steps", v)}
         />
       </div>
 
       {/* Manual control toggle */}
-      <label className="flex items-center justify-between mt-4 px-3 py-2.5 bg-[#f4fafc] rounded-xl cursor-pointer">
+      <label className={`flex items-center justify-between mt-4 px-3 py-2.5 bg-[#f4fafc] rounded-xl cursor-pointer ${focusClass(3)}`}>
         <span className="text-[13px] text-[#345461] font-medium">手動操作モード</span>
         <button
           type="button"
@@ -185,6 +233,7 @@ interface SliderFieldProps {
   max: number;
   step?: number;
   unit?: string;
+  className?: string;
   onChange: (value: number) => void;
 }
 
@@ -201,10 +250,11 @@ function SliderField({
   max,
   step = 1,
   unit = "",
+  className = "",
   onChange,
 }: SliderFieldProps) {
   return (
-    <label className="block">
+    <label className={`block rounded-xl px-1 py-1 -mx-1 -my-1 ${className}`}>
       <div className="flex justify-between items-baseline mb-1.5">
         <span className="text-[13px] text-[#345461] font-medium">{label}</span>
         <span className="text-[11px] font-semibold text-[#0e6a7b] bg-[#0e6a7b]/10 px-2 py-0.5 rounded-full tabular-nums">
@@ -225,3 +275,9 @@ function SliderField({
     </label>
   );
 }
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+export { GAMEPAD_CONTROL_COUNT };

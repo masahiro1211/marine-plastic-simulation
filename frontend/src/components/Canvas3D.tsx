@@ -24,6 +24,8 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
 
 const CAN_SCALE = 140;
 const BOTTLE_SCALE = 70;
+const CARRIED_CAN_SCALE = 56;
+const CARRIED_BOTTLE_SCALE = 34;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -152,10 +154,7 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
     <TurnTowardVelocity agent={agent} yawOffset={COLLECTOR_YAW_OFFSET}>
       <primitive object={cloned} scale={COLLECTOR_BASE_SCALE} position={[0, COLLECTOR_Y_OFFSET, 0]} />
       {carrying && (
-        <mesh position={[0, 14, 0]}>
-          <sphereGeometry args={[3, 12, 12]} />
-          <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.6} />
-        </mesh>
+        <CarriedTrashMesh id={String(agent.metadata?.carrying_trash_id ?? agent.id)} />
       )}
     </TurnTowardVelocity>
   );
@@ -163,7 +162,7 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
 
 // モデルの forward 方向に応じてヨーを補正する。
 const FISH_YAW_OFFSET = Math.PI;
-const FISH_BASE_SCALE = 5;
+const FISH_BASE_SCALE = 7.5;
 
 function FishMesh({ agent }: { agent: AgentState }) {
   const speciesId = Number(agent.metadata?.species_id ?? 0);
@@ -221,6 +220,23 @@ function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
           <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
         </mesh>
       )}
+    </group>
+  );
+}
+
+function CarriedTrashMesh({ id }: { id: string }) {
+  const canGltf = useGLTF("/models/can.glb");
+  const bottleGltf = useGLTF("/models/plastic_bottle.glb");
+  const h = hashAgentId(id);
+  const useCan = (h & 1) === 0;
+  const sourceScene = useCan ? canGltf.scene : bottleGltf.scene;
+  const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
+  const scale = useCan ? CARRIED_CAN_SCALE : CARRIED_BOTTLE_SCALE;
+  const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
+
+  return (
+    <group position={[0, 17, 0]} rotation={[0.25, rotationY, -0.12]}>
+      <primitive object={cloned} scale={scale} />
     </group>
   );
 }
@@ -328,9 +344,9 @@ function CollectorFallback({ agent }: { agent: AgentState }) {
         <meshStandardMaterial color="#34d399" emissive="#047857" emissiveIntensity={0.25} />
       </mesh>
       {carrying && (
-        <mesh position={[0, 8, 0]}>
-          <sphereGeometry args={[3, 12, 12]} />
-          <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.5} />
+        <mesh position={[0, 10, 0]} rotation={[0.3, Math.PI / 5, -0.2]}>
+          <boxGeometry args={[10, 4, 5]} />
+          <meshStandardMaterial color="#f97316" roughness={0.85} metalness={0.08} />
         </mesh>
       )}
     </TurnTowardVelocity>
@@ -343,7 +359,7 @@ function FishFallback({ agent }: { agent: AgentState }) {
   const color = colors[speciesId] ?? colors[0];
   return (
     <TurnTowardVelocity agent={agent}>
-      <group scale={agent.alive ? 1 : 0.4}>
+      <group scale={agent.alive ? 1.5 : 0.6}>
         <mesh rotation={[0, Math.PI / 2, 0]}>
           <sphereGeometry args={[6, 12, 8]} />
           <meshStandardMaterial color={color} />
