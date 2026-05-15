@@ -22,7 +22,7 @@ const dm2Styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '0 44px', fontSize: 11, letterSpacing: '0.22em',
   },
-  hero: { position: 'relative', height: 170, overflow: 'hidden' },
+  hero: { position: 'relative', height: 110, overflow: 'hidden' },
 };
 
 function DirMergedS2() {
@@ -30,40 +30,32 @@ function DirMergedS2() {
     <div style={dm2Styles.poster}>
       {/* === HEADER === */}
       <div style={dm2Styles.brandbar}>
-        <span style={{ fontWeight: 800 }}>REEF&nbsp;PATROL · DEEP&nbsp;DIVE</span>
+        <span style={{ fontWeight: 800 }}>ロボットシミュレーションゲーム</span>
         <span>Agent-Based Modeling of an Ocean Plastic Cleanup System</span>
-        <span>2026 / FOR&nbsp;RESEARCHERS</span>
+        
       </div>
       <div style={dm2Styles.hero}>
         <HeroScene palette="editorial" />
         <div style={{
           position: 'absolute', inset: 0,
-          padding: '14px 44px',
+          padding: '10px 44px',
           display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
           background: 'linear-gradient(180deg, rgba(11,58,92,0.55) 0%, rgba(11,58,92,0.2) 35%, rgba(11,58,92,0.55) 100%)',
         }}>
-          <div style={{ color: '#ffd84d', fontSize: 11, letterSpacing: '0.32em', fontWeight: 700, marginBottom: 5 }}>
+          <div style={{ color: '#ffd84d', fontSize: 10.5, letterSpacing: '0.32em', fontWeight: 700, marginBottom: 3 }}>
             EXHIBIT · DEEP DIVE · ABM
           </div>
-          <h1 style={{ color: '#fff', fontSize: 36, fontWeight: 900, lineHeight: 1.0, margin: 0, textShadow: '0 4px 18px rgba(0,0,0,0.4)', letterSpacing: '-0.01em' }}>
+          <h1 style={{ color: '#fff', fontSize: 30, fontWeight: 900, lineHeight: 1.0, margin: 0, textShadow: '0 4px 18px rgba(0,0,0,0.4)', letterSpacing: '-0.01em' }}>
             ABM で読み解く海洋ごみ生態系。
           </h1>
-          <div style={{ color: '#cfe9f3', fontSize: 13, marginTop: 3, fontWeight: 500 }}>
-            個体ルール → 相互作用 → 創発 を、4 種のエージェントで再現する。
+          <div style={{ color: '#cfe9f3', fontSize: 12, marginTop: 2, fontWeight: 500 }}>
+            個体ルール → 相互作用 → 創発 を、5 種のエージェントで再現する。
           </div>
-        </div>
-        <div style={{
-          position: 'absolute', top: 14, right: 28,
-          background: 'rgba(255,255,255,0.94)', padding: '5px 12px', borderRadius: 3,
-          fontSize: 10.5, fontWeight: 800, color: '#0b3a5c', letterSpacing: '0.08em',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        }}>
-          A1 / SLIDE&nbsp;2&nbsp;OF&nbsp;2
         </div>
       </div>
 
       {/* === BODY === */}
-      <div style={{ padding: '14px 44px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '10px 44px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* 01 ABM & Modeling Cycle (A) */}
         <SectionAS2 num="01" kicker="FRAMEWORK · ABM とモデル化サイクル" title="個体ルールから集団パターンへ。">
@@ -72,7 +64,7 @@ function DirMergedS2() {
               個体ルール <span style={{ color: '#ff7a59', margin: '0 3px' }}>→</span> 相互作用 <span style={{ color: '#ff7a59', margin: '0 3px' }}>→</span> 創発
             </div>
             <div style={{ fontSize: 11, color: '#355f80', lineHeight: 1.55, marginTop: 6 }}>
-              各エージェントに局所ルールのみを与え、中央集権的指令なしに集団パターンが立ち現れる過程を観察する手法<sup style={{ color: '#ff5d3b' }}>[4]</sup>。本作では <b style={{ color: '#0b3a5c' }}>4 種のエージェント</b>が連続 2D 空間で 1 tick ごとに状態更新し、個体スケール ↔ システムスケールの双方向影響を扱う。
+              各エージェントに局所ルールのみを与え、中央集権的指令なしに集団パターンが立ち現れる過程を観察する手法<sup style={{ color: '#ff5d3b' }}>[4]</sup>。本作では <b style={{ color: '#0b3a5c' }}>5 種のエージェント</b>が連続 2D 空間で 1 tick ごとに状態更新し、個体スケール ↔ システムスケールの双方向影響を扱う。
             </div>
           </div>
         </SectionAS2>
@@ -87,12 +79,13 @@ function DirMergedS2() {
               title="Scout"
               tag="Albatross-inspired"
               cite="[1]"
-              lead="アホウドリの食物探索を移植: 広域スキャンと局所探索を「見つけたか?」で切替える二相モデル。Lévy 飛行は希少資源探索で最適化されることが解析的に示されている<sup style={{ color: '#ff5d3b' }}>[1]</sup>。"
+              lead="アホウドリの食物探索を移植: 広域 scan ⇄ 局所 search を「見つけたか?」で切替える二相モデル。Lévy 飛行は希少資源探索で解析的に最適とされる<sup style={{ color: '#ff5d3b' }}>[1]</sup>。"
               bullets={[
-                <>(a) <b style={{ color: '#ff5d3b' }}>scan</b>: <code style={algoCode}>Lévy flight</code> · <code style={algoCode}>P(L)∝L^-μ</code> (μ≈2), heading ~ <code style={algoCode}>U(0,2π)</code></>,
-                <>(b) <b style={{ color: '#ff5d3b' }}>search</b>: <code style={algoCode}>ARS</code> · <code style={algoCode}>θ_t = θ_(t-1) + N(0,σ²)</code>, 短ステップ</>,
+                <>優先順位: <b>❶</b> 低エネルギーなら基地帰還 <b>❷</b> 検知ごみを <code style={algoCode}>shared_targets</code> へ push <b>❸</b> 二相探索</>,
+                <>(a) <b style={{ color: '#ff5d3b' }}>scan</b>: <code style={algoCode}>Lévy flight</code> · <code style={algoCode}>P(L)∝L^-μ</code> (μ≈2), heading ~ <code style={algoCode}>U(0,2π)</code> — 長脚で広域カバー</>,
+                <>(b) <b style={{ color: '#ff5d3b' }}>search</b>: <code style={algoCode}>ARS</code> · <code style={algoCode}>θ_t = θ_(t-1) + N(0,σ²)</code>, 短ステップ — 局所を密にスイープ</>,
                 <>切替: (a)→(b) 検知半径 <code style={algoCode}>r_s</code> 内に発見 / (b)→(a) <code style={algoCode}>N_miss</code> tick 連続未検出</>,
-                <>共有: 検知ごみを <code style={algoCode}>shared_targets</code> へ push、TTL 経過で eviction</>,
+                <>共有: 検知ごみを <code style={algoCode}>shared_targets</code> へ push、TTL 経過で eviction — Collector が即時利用</>,
                 <>バッテリー: <code style={algoCode}>E(t+1)=E(t)-β·|v|</code>、<code style={algoCode}>E&lt;E_low</code> で基地帰還</>,
               ]}
             />
@@ -100,14 +93,14 @@ function DirMergedS2() {
               accent="#4aa3ff"
               emoji="🚤"
               title="Collector"
-              tag="Goal-Weighted FSM"
-              lead="共有ターゲットから 1 件を選び、追跡・把持・帰還を 4 状態の FSM で管理。Scout の探索結果を即時利用する。"
+              tag="Priority FSM + Greedy Pickup"
+              lead="Scout が共有したごみを最近接基準で 1 件選び、追跡・把持・帰還を排他的な優先順位で切替える FSM。"
               bullets={[
-                <>選択: <code style={algoCode}>score = w_d/d + w_f·freshness − w_c·contention</code> を最大化</>,
-                <>状態: <code style={algoCode}>seeking → carrying → returning → charging</code>(各遷移に明示条件)</>,
-                <>把持: 接触判定 <code style={algoCode}>‖p_c − p_t‖ &lt; r_grip</code> → <b style={{ color: '#ff5d3b' }}>+12 pt</b></>,
-                <>充電: 基地到達で <code style={algoCode}>E ← E_max</code>、残量比例で <b style={{ color: '#ff5d3b' }}>+α pt</b></>,
-                <>手動: UI トグル ON で FSM を bypass、WASD/矢印キー入力で速度ベクトル直接指定</>,
+                <>優先順位: <b>❶</b> 満載なら帰還 <b>❷</b> 基地で <code style={algoCode}>E_max</code> まで充電 <b>❸</b> 低エネで帰還 <b>❹</b> 追跡 <b>❺</b> パトロール</>,
+                <>選択: <code style={algoCode}>sensor_radius</code> 内の最近接、なければ <code style={algoCode}>shared_targets</code> の最近接</>,
+                <>状態: <code style={algoCode}>patrolling → collecting → delivering → returning → charging</code>(各遷移に明示条件)</>,
+                <>把持: <code style={algoCode}>‖p_c − p_t‖ &lt; r_grip</code> で回収 → <b style={{ color: '#ff5d3b' }}>+12 pt</b>。スコア ≥ 1000 で capacity が 2 に増強</>,
+                <>手動: UI トグル ON で FSM を bypass、WASD/矢印キーで速度ベクトル直接指定</>,
               ]}
             />
             <AlgoCard
@@ -133,11 +126,11 @@ function DirMergedS2() {
               tag="Lévy Cruise + Cluster Chase"
               lead="魚群ホットスポットを探し当て、十分大きな塊を見つけると群中心へ突進。捕食はせず、群行動の緊張源として機能する。"
               bullets={[
-                <>巡航: Scout と同型の <code style={algoCode}>Lévy flight</code>(μ≈2、長距離ジャンプ)</>,
-                <>検知: 半径 <code style={algoCode}>predator_sensor_radius</code> 内の魚を近接連結でクラスタ化</>,
-                <>遷移: <code style={algoCode}>|C| ≥ predator_cluster_min_size</code> で <b>chase(C̄)</b>(重心追跡)</>,
-                <>chase: <code style={algoCode}>|v|×predator_chase_speed_factor</code>、ヒステリシス <code style={algoCode}>|C|&lt;k_min/2</code> で離脱</>,
-                <>影響: Marine Life の Panic を誘発 → 群が flash expansion(直接捕食はしない)</>,
+                <>巡航: Scout と同型の <code style={algoCode}>Lévy flight</code>(μ≈2)</>,
+                <>検知: <code style={algoCode}>predator_sensor_radius</code> 内の魚を <code style={algoCode}>zoa</code> 半径で近接連結しクラスタ化</>,
+                <>chase: <code style={algoCode}>|C| ≥ predator_cluster_min_size</code> で群重心へ突進、未満なら最近接魚に fallback</>,
+                <>速度: <code style={algoCode}>|v|×predator_chase_speed_factor</code>、追いついたら 0.7 倍に減速</>,
+                <>影響: Marine Life の Panic を誘発 → 群が <b style={{ color: '#ff5d3b' }}>flash expansion</b>(直接捕食はしない)</>,
               ]}
             />
             <AlgoCard
@@ -145,13 +138,12 @@ function DirMergedS2() {
               emoji="🗑️"
               title="Trash"
               tag="Source-weighted Generation + Drift"
-              lead="現実の海洋プラスチック流入を簡素化: 河口・港・沿岸・沖の 4 ソースから重み付き出現、海流で帯状に集積。garbage patch (収束帯) の擬似的再現が目的。"
+              lead="河口・沿岸・港・沖の 4 ソースから重み付きで生成し、海流と収束 pull で漂流させる受動アクター。garbage patch を擬似再現。"
               bullets={[
-                <>生成: ソース <code style={algoCode}>i</code> から確率 <code style={algoCode}>w_i (Σw_i=1)</code> でスポーン + 初期クラスタ化 + 上限 <code style={algoCode}>max_trash</code></>,
-                <>輸送: <code style={algoCode}>v = v_current + v_convergence(x) + v_diffusion(η)</code>、<code style={algoCode}>η ~ N(0, D²·dt)</code></>,
-                <>収束: <code style={algoCode}>v_conv(x) = −∇φ(x)</code> 帯状ポテンシャルから <b style={{ color: '#ff5d3b' }}>ホットスポット</b> が創発</>,
-                <>収支: <code style={algoCode}>dN/dt = R_gen − R_collect − R_eat − R_outflow</code>(定常で回収レートが評価指標)</>,
-                <>消滅: Collector 把持 / Marine Life 誤飲 / 場外退出 のいずれか</>,
+                <>生成: 4 ソースから <code style={algoCode}>w_i</code> 比で抽選、圧力蓄積でバースト出現、上限 <code style={algoCode}>max_trash</code></>,
+                <>輸送: 海流 + ソース外向き流 + 収束点 pull + 一様ランダム拡散</>,
+                <>収束: <code style={algoCode}>(convergence_x, convergence_y)</code> への弱い pull が <b style={{ color: '#ff5d3b' }}>ホットスポット</b> を形成</>,
+                <>消滅: Collector 把持 / Marine Life 誤飲 の 2 経路のみ</>,
               ]}
               fullWidth
             />
@@ -169,10 +161,10 @@ function DirMergedS2() {
               <div style={{ fontFamily: '"Helvetica Neue", sans-serif', fontWeight: 200, fontSize: 30, lineHeight: 0.85, color: '#ffd84d', letterSpacing: '-0.04em' }}>03</div>
               <div>
                 <div style={{ fontSize: 10, letterSpacing: '0.26em', fontWeight: 800, color: '#ffd84d' }}>EMERGENCE</div>
-                <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>創発する 4 つの現象。</div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>創発する 3 つの現象。</div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8 }}>
               <EmergeM
                 title="群行動 (Schooling)"
                 desc="同種の近傍に 3 ゾーンが働き、自発的に整列・凝集する"
@@ -188,18 +180,11 @@ function DirMergedS2() {
                 pict={EmergePanic}
               />
               <EmergeM
-                title="ホットスポット"
-                desc="海流収束で漂着ごみが帯状に集積"
-                cond="v_conv の収束帯 (∇·v < 0) が存在"
-                metric="local density ρ_max/ρ̄, Gini 係数"
-                pict={EmergeHotspot}
-              />
-              <EmergeM
-                title="適応的探索"
-                desc="ARS が当たり時に縮み、Lévy が広域に飛ぶ"
-                cond="検知頻度に応じ scan↔search 自動切替"
-                metric="検知/tick, 平均ステップ長 ⟨L⟩"
-                pict={EmergeARS}
+                title="分業 (Division of Labor)"
+                desc="Scout が広域で検知した trash を shared_targets に push、Collector がそれを最近接で消化 — 中央指令なしに役割が分かれる"
+                cond="Scout/Collector が共存 ∧ Scout の検知が Collector の sensor_radius 外を含む"
+                metric="shared_targets 経由の回収比率, Scout 検知 → Collector 把持の平均遅延"
+                pict={EmergeDivision}
               />
             </div>
           </div>
@@ -357,30 +342,28 @@ function EmergePanic() {
   );
 }
 
-function EmergeHotspot() {
+function EmergeDivision() {
   return (
     <svg viewBox="0 0 100 50" width="100%" height="100%">
+      {/* Scout (上左) — 検知範囲付き */}
+      <circle cx="14" cy="12" r="9" fill="none" stroke="#f0a93c" strokeWidth="1" strokeDasharray="2 2" />
+      <circle cx="14" cy="12" r="3.5" fill="#f0a93c" />
+      {/* Trash (中央) */}
+      <rect x="48" y="22" width="6" height="6" rx="1" fill="#516573" />
+      {/* Collector (下右) */}
+      <path d="M78 38 l12 0 l-2 4 l-8 0 z" fill="#4aa3ff" />
+      <rect x="82" y="32" width="4" height="6" fill="#4aa3ff" />
+      {/* 検知 → 共有 (Scout → Trash, 破線) */}
+      <path d="M22 16 L 46 24" stroke="#f0a93c" strokeWidth="1.2" strokeDasharray="2 2" fill="none" markerEnd="url(#arrD)" />
+      {/* 把持 → 回収 (Collector → Trash, 実線) */}
+      <path d="M80 36 L 56 28" stroke="#4aa3ff" strokeWidth="1.5" fill="none" markerEnd="url(#arrD)" />
       <defs>
-        <radialGradient id="hot2" cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="#ff7a59" stopOpacity="0.95" />
-          <stop offset="1" stopColor="#ff7a59" stopOpacity="0" />
-        </radialGradient>
+        <marker id="arrD" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="#0b3a5c" />
+        </marker>
       </defs>
-      <circle cx="50" cy="25" r="22" fill="url(#hot2)" />
-      <g fill="#516573">
-        <rect x="40" y="23" width="6" height="5" rx="1" />
-        <rect x="52" y="27" width="5" height="6" rx="1" />
-        <rect x="46" y="15" width="5" height="5" rx="1" />
-      </g>
-    </svg>
-  );
-}
-
-function EmergeARS() {
-  return (
-    <svg viewBox="0 0 100 50" width="100%" height="100%">
-      <path d="M10 42 q 20 -36 40 -14 q 15 18 40 -22" stroke="#f0a93c" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <circle cx="90" cy="6" r="2.5" fill="#f0a93c" />
+      <text x="26" y="10" fontSize="5.5" fill="#0b3a5c" fontWeight="700">push</text>
+      <text x="58" y="40" fontSize="5.5" fill="#0b3a5c" fontWeight="700">pickup</text>
     </svg>
   );
 }

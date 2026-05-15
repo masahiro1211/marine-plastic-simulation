@@ -124,53 +124,68 @@ function HeroScene({ palette = 'soft' }) {
 }
 
 // Small reusable agent icon used in lists / keys
+// Shapes/colors mirror the actual in-app gltf primitives
+// (see frontend/public/assets/gltf/fixtures/*.glftest.gltf)
 function AgentChip({ kind, size = 56 }) {
-  const stroke = '#0b3a5c';
   return (
     <svg width={size} height={size} viewBox="0 0 56 56">
       {kind === 'scout' && (
         <g transform="translate(28,28)">
-          <ellipse rx="20" ry="7" fill="#f0a93c" stroke={stroke} strokeWidth="1.6" />
-          <rect x="-7" y="-15" width="14" height="11" rx="1" fill="#fff" stroke={stroke} strokeWidth="1.6" />
-          <rect x="-1.5" y="-21" width="3" height="7" fill="#ff7a59" />
+          {/* 電波(右) */}
+          <path d="M 5 -12 Q 12 -9 12 -2" stroke="#38bdf8" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M 10 -17 Q 20 -12 20 0" stroke="#38bdf8" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.55" />
+          {/* 電波(左) */}
+          <path d="M -5 -12 Q -12 -9 -12 -2" stroke="#38bdf8" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <path d="M -10 -17 Q -20 -12 -20 0" stroke="#38bdf8" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.55" />
+          {/* アンテナ塔 */}
+          <path d="M -7 14 L 0 -16 L 7 14" stroke="#0b3a5c" strokeWidth="2" fill="none" strokeLinejoin="round" />
+          <line x1="-3.5" y1="0" x2="3.5" y2="0" stroke="#0b3a5c" strokeWidth="1.5" />
+          <line x1="-5" y1="7" x2="5" y2="7" stroke="#0b3a5c" strokeWidth="1.5" />
+          <line x1="-9" y1="14" x2="9" y2="14" stroke="#0b3a5c" strokeWidth="2" strokeLinecap="round" />
+          {/* 先端の発信点 */}
+          <circle cx="0" cy="-17" r="2.8" fill="#ffd84d" stroke="#0b3a5c" strokeWidth="1.2" />
         </g>
       )}
       {kind === 'collector' && (
-        <g transform="translate(28,30)">
-          <path d="M-22 -2 L 22 -2 L 17 12 L -17 12 Z" fill="#4aa3ff" stroke={stroke} strokeWidth="1.6" />
-          <rect x="-13" y="-15" width="26" height="13" fill="#fff" stroke={stroke} strokeWidth="1.6" />
-          <rect x="-2" y="-21" width="2.5" height="6" fill="#ff7a59" />
+        <g transform="translate(28,28) scale(1.6)">
+          <rect x="-12" y="-7" width="24" height="14" fill="#34d399" stroke="#064e3b" strokeWidth="1" />
+          <ellipse cx="6" cy="0" rx="3" ry="3" fill="#d1fae5" />
         </g>
       )}
       {kind === 'fish' && (
-        <g transform="translate(28,28)">
-          <ellipse rx="18" ry="8" fill="#ffae45" stroke={stroke} strokeWidth="1.4" />
-          <polygon points="-16,0 -24,-6 -24,6" fill="#ffae45" stroke={stroke} strokeWidth="1.4" />
-          <circle cx="10" cy="-2" r="2" fill={stroke} />
-          <path d="M -2 0 Q 8 -3 16 0" stroke={stroke} strokeWidth="1" fill="none" />
+        <g transform="translate(28,28) scale(1.5)">
+          <ellipse cx="0" cy="0" rx="12" ry="7" fill="#7dd3fc" />
+          <polygon points="-10,0 -17,-6 -17,6" fill="#7dd3fc" />
+          <ellipse cx="6" cy="-2" rx="1.5" ry="1.5" fill="#0f172a" />
         </g>
       )}
       {kind === 'orca' && (
-        <g transform="translate(28,30)">
-          <ellipse rx="22" ry="9" fill={stroke} />
-          <ellipse cx="-3" cy="2" rx="11" ry="4" fill="#fff" />
-          <polygon points="2,-8 9,-19 14,-7" fill={stroke} />
-          <path d="M -22 -2 q -8 -2 -11 3 q 4 -1 11 5 Z" fill={stroke} />
+        <g transform="translate(28,30) scale(1.15)">
+          {/* body */}
+          <path d="M 17 0 Q 12 -9 -4 -8 Q -18 -7 -20 0 Q -18 7 -4 8 Q 12 9 17 0 Z" fill="#1f2937" />
+          {/* white belly */}
+          <path d="M 14 3 Q 8 8 -6 7 Q -16 6 -18 2 Q -10 5 0 5 Q 10 5 14 3 Z" fill="#f8fafc" />
+          {/* white eye patch */}
+          <ellipse cx="9" cy="-3" rx="3.5" ry="2.2" fill="#f8fafc" />
+          {/* eye */}
+          <ellipse cx="9.5" cy="-3" rx="0.9" ry="1" fill="#0f172a" />
+          {/* dorsal fin */}
+          <polygon points="-2,-7 -6,-18 -10,-6" fill="#1f2937" />
+          {/* tail flukes */}
+          <polygon points="-18,0 -27,-6 -23,0 -27,6" fill="#1f2937" />
+          {/* pectoral fin hint */}
+          <polygon points="-2,5 -8,12 -10,4" fill="#0f172a" opacity="0.85" />
         </g>
       )}
       {kind === 'trash' && (
-        <g transform="translate(28,28)">
-          <rect x="-16" y="-10" width="14" height="10" rx="2" fill="#e6ecf0" stroke="#516573" strokeWidth="1.4" />
-          <rect x="2" y="-2" width="14" height="14" rx="2" fill="#e6ecf0" stroke="#516573" strokeWidth="1.4" transform="rotate(15,9,5)" />
-          <circle cx="-6" cy="8" r="5" fill="#e6ecf0" stroke="#516573" strokeWidth="1.4" />
+        <g transform="translate(28,28) scale(2.4)">
+          <polygon points="-8,-2 6,-7 9,3 -3,8" fill="#fb923c" stroke="#7c2d12" strokeWidth="1" />
         </g>
       )}
       {kind === 'base' && (
-        <g transform="translate(28,30)">
-          <rect x="-9" y="-13" width="18" height="22" fill="#fff" stroke={stroke} strokeWidth="1.6" />
-          <polygon points="-9,-13 9,-13 0,-23" fill="#ff7a59" />
-          <rect x="-3" y="-7" width="6" height="6" fill="#ffd84d" />
-          <rect x="-13" y="9" width="26" height="4" fill={stroke} />
+        <g transform="translate(28,30) scale(0.32)">
+          <rect x="-70" y="-18" width="140" height="30" fill="#d4a373" stroke="#7f5539" strokeWidth="2" />
+          <rect x="-28" y="-42" width="56" height="24" fill="#f1f5f9" stroke="#64748b" strokeWidth="1" />
         </g>
       )}
     </svg>
