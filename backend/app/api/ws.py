@@ -29,6 +29,47 @@ def _bounded_float(value: Any, *, default: float, minimum: float, maximum: float
     return min(max(number, minimum), maximum)
 
 
+async def _handle_control_message(
+    websocket: WebSocket,
+    engine: Any,
+    data: str,
+) -> bool:
+    """Apply one client control message.
+
+    Returns:
+        True when the websocket was closed and the stream should stop.
+    """
+    if len(data.encode("utf-8")) > MAX_CONTROL_MESSAGE_BYTES:
+        await websocket.close(code=1009)
+        return True
+    message = json.loads(data)
+    if not isinstance(message, dict):
+        return False
+    action = message.get("action")
+    if action == "stop":
+        engine.stop()
+    elif action == "reset":
+        config_data = message.get("config")
+        if config_data:
+            engine.reset(SimulationConfig(**config_data))
+        else:
+            engine.reset()
+        engine.start()
+    elif action == "update_config":
+        config_data = message.get("config", {})
+        engine.reset(SimulationConfig(**config_data))
+    elif action == "start":
+        engine.start()
+    elif action == "manual_move":
+        dx = _bounded_float(message.get("dx"), default=0.0, minimum=-1.0, maximum=1.0)
+        dy = _bounded_float(message.get("dy"), default=0.0, minimum=-1.0, maximum=1.0)
+        for agent in engine.collectors:
+            if getattr(agent, "is_manual", False):
+                agent.manual_vx = dx
+                agent.manual_vy = dy
+    return False
+
+
 @router.websocket("/ws/simulation")
 async def simulation_ws(websocket: WebSocket):
     """Stream live simulation snapshots over a WebSocket connection.
@@ -45,52 +86,42 @@ async def simulation_ws(websocket: WebSocket):
 
     engine = get_engine()
     await websocket.accept()
+    loop = asyncio.get_running_loop()
+    receive_task = asyncio.create_task(websocket.receive_text())
+    next_tick_at = loop.time()
     try:
         while True:
-            try:
-                data = await asyncio.wait_for(
-                    websocket.receive_text(), timeout=0.01
-                )
-                if len(data.encode("utf-8")) > MAX_CONTROL_MESSAGE_BYTES:
-                    await websocket.close(code=1009)
-                    return
-                message = json.loads(data)
-                if not isinstance(message, dict):
-                    continue
-                action = message.get("action")
-                if action == "stop":
-                    engine.stop()
-                elif action == "reset":
-                    config_data = message.get("config")
-                    if config_data:
-                        engine.reset(SimulationConfig(**config_data))
-                    else:
-                        engine.reset()
-                    engine.start()
-                elif action == "update_config":
-                    config_data = message.get("config", {})
-                    engine.reset(SimulationConfig(**config_data))
-                elif action == "start":
-                    engine.start()
-                elif action == "manual_move":
-                    dx = _bounded_float(message.get("dx"), default=0.0, minimum=-1.0, maximum=1.0)
-                    dy = _bounded_float(message.get("dy"), default=0.0, minimum=-1.0, maximum=1.0)
-                    for agent in engine.collectors:
-                        if getattr(agent, "is_manual", False):
-                            agent.manual_vx = dx
-                            agent.manual_vy = dy
-            except asyncio.TimeoutError:
-                pass
-            except (json.JSONDecodeError, TypeError, ValidationError):
+            timeout = max(0.0, next_tick_at - loop.time())
+            done, _ = await asyncio.wait(
+                {receive_task},
+                timeout=timeout,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if receive_task in done:
+                try:
+                    data = receive_task.result()
+                    should_stop = await _handle_control_message(websocket, engine, data)
+                    if should_stop:
+                        return
+                except (json.JSONDecodeError, TypeError, ValidationError):
+                    pass
+                receive_task = asyncio.create_task(websocket.receive_text())
+
+            now = loop.time()
+            if now < next_tick_at:
                 continue
 
-            snapshot = engine.get_snapshot()
             if engine.running:
                 engine.step()
-                snapshot = engine.get_snapshot()
-            await websocket.send_json(snapshot)
+            await websocket.send_json(engine.get_snapshot())
             if engine.phase == "completed" and not engine.running:
                 break
-            await asyncio.sleep(engine.config.tick_interval_ms / 1000)
+
+            interval_seconds = max(engine.config.tick_interval_ms / 1000, 0.001)
+            next_tick_at = now + interval_seconds
     except WebSocketDisconnect:
         engine.stop()
+    finally:
+        if not receive_task.done():
+            receive_task.cancel()

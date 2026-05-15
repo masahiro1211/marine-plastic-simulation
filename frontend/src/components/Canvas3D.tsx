@@ -34,6 +34,8 @@ const CARRIED_BOTTLE_SCALE = 34;
 const ORCA_YAW_OFFSET = Math.PI;
 
 const ORCA_BASE_SCALE = 4.5;
+const POSITION_FOLLOW_RATE = 18;
+const POSITION_SNAP_DISTANCE = 180;
 
 class ModelErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -290,12 +292,34 @@ function AgentNode({
   cz: number;
   discovered: boolean;
 }) {
+  const ref = useRef<THREE.Group>(null);
   const wx = agent.x - cx;
   const wz = agent.y - cz;
   const y = agent.agent_type === "predator" ? 14 : 8;
+  const initialPosition = useMemo<[number, number, number]>(
+    () => [wx, y, wz],
+    []
+  );
+
+  useFrame((_, delta) => {
+    const group = ref.current;
+    if (!group) return;
+    const dx = wx - group.position.x;
+    const dy = y - group.position.y;
+    const dz = wz - group.position.z;
+    const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
+    if (dx * dx + dy * dy + dz * dz > snapDistanceSq) {
+      group.position.set(wx, y, wz);
+      return;
+    }
+    const alpha = 1 - Math.exp(-POSITION_FOLLOW_RATE * delta);
+    group.position.x += dx * alpha;
+    group.position.y += dy * alpha;
+    group.position.z += dz * alpha;
+  });
 
   return (
-    <group position={[wx, y, wz]}>
+    <group ref={ref} position={initialPosition}>
       {agent.agent_type === "predator" && (
         <ModelErrorBoundary fallback={<PredatorFallback agent={agent} />}>
           <OrcaPredator agent={agent} />
