@@ -9,6 +9,7 @@ export type CameraPreset = "angle" | "top";
 
 useGLTF.preload("/models/orca.glb");
 useGLTF.preload("/models/collector.glb");
+useGLTF.preload("/models/collector_manual.glb");
 useGLTF.preload("/models/fish.glb");
 useGLTF.preload("/models/fish_2.glb");
 useGLTF.preload("/models/fish_3.glb");
@@ -136,7 +137,9 @@ const COLLECTOR_BASE_SCALE = 9;
 const COLLECTOR_Y_OFFSET = 0;
 
 function CollectorMesh({ agent }: { agent: AgentState }) {
-  const { scene, animations } = useGLTF("/models/collector.glb");
+  const isManual = Boolean(agent.metadata?.is_manual);
+  const modelPath = isManual ? "/models/collector_manual.glb" : "/models/collector.glb";
+  const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions, names } = useAnimations(animations, cloned);
 
@@ -217,9 +220,19 @@ function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
     <group>
       <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
       {discovered && (
-        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[14, 18, 48]} />
-          <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
+        <mesh
+          position={[0, -7, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          renderOrder={1}
+        >
+          <ringGeometry args={[25, 34, 48]} />
+          <meshBasicMaterial
+            color="#ef4444"
+            transparent
+            opacity={0.9}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
         </mesh>
       )}
     </group>
