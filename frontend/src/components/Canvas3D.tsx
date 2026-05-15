@@ -17,32 +17,38 @@ import type { AgentState, BaseState } from "../types";
 
 export type CameraPreset = "angle" | "top";
 
-useGLTF.setDecoderPath("/draco/");
-useGLTF.preload("/models/orca.glb");
-useGLTF.preload("/models/collector.glb");
-useGLTF.preload("/models/collector_with_can.glb");
-useGLTF.preload("/models/collector_with_bottle.glb");
-useGLTF.preload("/models/collector_with_2cans.glb");
-useGLTF.preload("/models/collector_with_2bottles.glb");
-useGLTF.preload("/models/collector_with_both.glb");
-useGLTF.preload("/models/collector_manual.glb");
-useGLTF.preload("/models/collector_manual_with_can.glb");
-useGLTF.preload("/models/collector_manual_with_bottle.glb");
-useGLTF.preload("/models/collector_manual_with_2cans.glb");
-useGLTF.preload("/models/collector_manual_with_2bottles.glb");
-useGLTF.preload("/models/collector_manual_with_both.glb");
-useGLTF.preload("/models/fish.glb");
-useGLTF.preload("/models/fish_2.glb");
-useGLTF.preload("/models/fish_3.glb");
-useGLTF.preload("/models/scout.glb");
-useGLTF.preload("/models/can.glb");
-useGLTF.preload("/models/plastic_bottle.glb");
+const COLLECTOR_MODEL_PATHS = [
+  "/models/collector.glb",
+  "/models/collector_with_can.glb",
+  "/models/collector_with_bottle.glb",
+  "/models/collector_with_2cans.glb",
+  "/models/collector_with_2bottles.glb",
+  "/models/collector_with_both.glb",
+  "/models/collector_manual.glb",
+  "/models/collector_manual_with_can.glb",
+  "/models/collector_manual_with_bottle.glb",
+  "/models/collector_manual_with_2cans.glb",
+  "/models/collector_manual_with_2bottles.glb",
+  "/models/collector_manual_with_both.glb",
+] as const;
 
 const FISH_MODEL_BY_SPECIES: Record<number, string> = {
   0: "/models/fish.glb",
   1: "/models/fish_2.glb",
   2: "/models/fish_3.glb",
 };
+
+useGLTF.setDecoderPath("/draco/");
+useGLTF.preload("/models/orca.glb");
+for (const modelPath of COLLECTOR_MODEL_PATHS) {
+  useGLTF.preload(modelPath);
+}
+for (const modelPath of Object.values(FISH_MODEL_BY_SPECIES)) {
+  useGLTF.preload(modelPath);
+}
+useGLTF.preload("/models/scout.glb");
+useGLTF.preload("/models/can.glb");
+useGLTF.preload("/models/plastic_bottle.glb");
 
 // Trash GLBs are already authored close to scene scale; keep these small so
 // the full models stay visually comparable to the other agents.
@@ -142,6 +148,12 @@ class ModelErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  componentDidCatch(error: Error) {
+    if (import.meta.env.DEV) {
+      console.warn(`[Canvas3D] Falling back from ${this.props.resetKey}`, error);
+    }
+  }
+
   componentDidUpdate(prevProps: Readonly<{ resetKey: string }>) {
     if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
       this.setState({ hasError: false });
@@ -218,6 +230,19 @@ const COLLECTOR_YAW_OFFSET = 0;
 const COLLECTOR_BASE_SCALE = 9;
 const COLLECTOR_Y_OFFSET = 0;
 
+function carriedTrashIds(agent: AgentState): string[] {
+  const ids = agent.metadata?.carrying_trash_ids;
+  if (Array.isArray(ids)) return (ids as unknown[]).map(String);
+  if (agent.metadata?.carrying_trash_id) {
+    return [String(agent.metadata.carrying_trash_id)];
+  }
+  return [];
+}
+
+function collectorModelPathForAgent(agent: AgentState): string {
+  return collectorModelPath(Boolean(agent.metadata?.is_manual), carriedTrashIds(agent));
+}
+
 function collectorModelPath(isManual: boolean, carriedIds: string[]): string {
   const prefix = isManual ? "collector_manual" : "collector";
   if (carriedIds.length === 0) return `/models/${prefix}.glb`;
@@ -233,17 +258,7 @@ function collectorModelPath(isManual: boolean, carriedIds: string[]): string {
   return `/models/${prefix}_with_both.glb`;
 }
 
-function CollectorMesh({ agent }: { agent: AgentState }) {
-  const isManual = Boolean(agent.metadata?.is_manual);
-  const carriedTrashIds = useMemo(() => {
-    const ids = agent.metadata?.carrying_trash_ids;
-    if (Array.isArray(ids)) return (ids as unknown[]).map(String);
-    if (agent.metadata?.carrying_trash_id) {
-      return [String(agent.metadata.carrying_trash_id)];
-    }
-    return [];
-  }, [agent.metadata?.carrying_trash_ids, agent.metadata?.carrying_trash_id]);
-  const modelPath = collectorModelPath(isManual, carriedTrashIds);
+function CollectorMesh({ agent, modelPath }: { agent: AgentState; modelPath: string }) {
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions, names } = useManagedAnimations(animations, cloned);
@@ -388,6 +403,8 @@ function AgentNode({
   const wx = agent.x - cx;
   const wz = agent.y - cz;
   const y = agent.agent_type === "predator" ? 14 : 8;
+  const collectorModelPath =
+    agent.agent_type === "collector" ? collectorModelPathForAgent(agent) : null;
   const initialPositionRef = useRef<[number, number, number]>([wx, y, wz]);
   const setGroupRef = useCallback(
     (group: THREE.Group | null) => {
@@ -417,11 +434,11 @@ function AgentNode({
       )}
       {agent.agent_type === "collector" && (
         <ModelErrorBoundary
-          resetKey={agent.metadata?.is_manual ? "/models/collector_manual.glb" : "/models/collector.glb"}
+          resetKey={collectorModelPath ?? "/models/collector.glb"}
           fallback={<CollectorFallback agent={agent} />}
         >
           <Suspense fallback={<CollectorFallback agent={agent} />}>
-            <CollectorMesh agent={agent} />
+            <CollectorMesh agent={agent} modelPath={collectorModelPath ?? "/models/collector.glb"} />
           </Suspense>
         </ModelErrorBoundary>
       )}
