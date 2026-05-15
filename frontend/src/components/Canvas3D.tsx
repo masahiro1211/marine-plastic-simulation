@@ -823,6 +823,10 @@ function shouldResetMotionSamples(
   return false;
 }
 
+function isManualAgent(agent: AgentState): boolean {
+  return agent.agent_type === "collector" && agent.metadata?.is_manual === true;
+}
+
 function AgentsLayer({
   agents,
   discoveredSet,
@@ -884,7 +888,7 @@ function AgentsLayer({
       const group = agentGroupsRef.current.get(agent.id);
       if (!group) continue;
 
-      const motion = perfOptions.disableInterpolation
+      const motion = perfOptions.disableInterpolation || isManualAgent(agent)
         ? { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy }
         : resolveInterpolatedMotion(agent, samples, renderTime);
       const wx = motion.x - cx;

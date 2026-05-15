@@ -36,6 +36,7 @@ const API_URL = trimTrailingSlash(
 const WS_URL =
   env.VITE_WS_URL ?? env.REACT_APP_WS_URL ?? websocketUrlFromApiUrl(API_URL);
 const LIVE_SNAPSHOT_STATE_INTERVAL_MS = 100;
+const MANUAL_INPUT_FAST_SNAPSHOT_WINDOW_MS = 250;
 
 const DEFAULT_STATS: SimulationStats = {
   scouts: 0,
@@ -145,6 +146,7 @@ export default function useSimulation(): SimulationState {
   const latestSnapshotRef = useRef<Partial<SimulationSnapshot> | null>(null);
   const snapshotTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const lastSnapshotAppliedAtRef = useRef<number>(0);
+  const lastManualMoveSentAtRef = useRef<number>(0);
 
   /**
    * Apply a partial snapshot payload to local React state.
@@ -212,6 +214,14 @@ export default function useSimulation(): SimulationState {
 
       latestSnapshotRef.current = data;
       const now = performance.now();
+      if (now - lastManualMoveSentAtRef.current < MANUAL_INPUT_FAST_SNAPSHOT_WINDOW_MS) {
+        latestSnapshotRef.current = null;
+        clearSnapshotTimer();
+        lastSnapshotAppliedAtRef.current = now;
+        applySnapshot(data);
+        return;
+      }
+
       const elapsed = now - lastSnapshotAppliedAtRef.current;
 
       if (elapsed >= LIVE_SNAPSHOT_STATE_INTERVAL_MS) {
@@ -291,7 +301,10 @@ export default function useSimulation(): SimulationState {
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
 
   const manualMove = useCallback(
-    (dx: number, dy: number) => sendAction("manual_move", { dx, dy }),
+    (dx: number, dy: number) => {
+      lastManualMoveSentAtRef.current = performance.now();
+      sendAction("manual_move", { dx, dy });
+    },
     [sendAction]
   );
 
