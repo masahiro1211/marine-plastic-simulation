@@ -24,8 +24,8 @@ const PHASE_TONE: Record<SimulationPhase, string> = {
 };
 
 const RANK_TIERS = ["ヤドカリ", "クマノミ", "ウミガメ", "イルカ", "シャチ"];
-const CLEAR_SCORE = 1000;
-const UPGRADE_SCORE = 500;
+const CLEAR_SCORE = 2000;
+const UPGRADE_SCORE = 1000;
 const RANK_STEP = CLEAR_SCORE / RANK_TIERS.length;
 
 interface DeltaItem {

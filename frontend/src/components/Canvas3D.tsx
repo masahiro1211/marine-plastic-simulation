@@ -7,7 +7,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  type RefObject,
   type ReactNode,
 } from "react";
 import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
@@ -36,11 +35,11 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
 };
 
 // Trash GLBs are already authored close to scene scale; keep these small so
-// instanced trash stays visually comparable to the other agents.
-const CAN_SCALE = 18;
-const BOTTLE_SCALE = 18;
-const CARRIED_CAN_SCALE = 14;
-const CARRIED_BOTTLE_SCALE = 10;
+// the full models stay visually comparable to the other agents.
+const CAN_SCALE = 12;
+const BOTTLE_SCALE = 9;
+const CARRIED_CAN_SCALE = 7;
+const CARRIED_BOTTLE_SCALE = 5;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -283,16 +282,6 @@ function hashAgentId(id: string): number {
   return h >>> 0;
 }
 
-function findFirstMesh(root: THREE.Object3D): THREE.Mesh | null {
-  let mesh: THREE.Mesh | null = null;
-  root.traverse((child) => {
-    if (!mesh && (child as THREE.Mesh).isMesh) {
-      mesh = child as THREE.Mesh;
-    }
-  });
-  return mesh;
-}
-
 function isCanTrash(id: string): boolean {
   return (hashAgentId(id) & 1) === 0;
 }
@@ -302,77 +291,18 @@ function trashRotationY(id: string): number {
   return (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
 }
 
-function TrashInstances({
-  canTrashAgents,
-  bottleTrashAgents,
-  discoveredTrashAgents,
-  cx,
-  cz,
-  canRef,
-  bottleRef,
-}: {
-  canTrashAgents: AgentState[];
-  bottleTrashAgents: AgentState[];
-  discoveredTrashAgents: AgentState[];
-  cx: number;
-  cz: number;
-  canRef: RefObject<THREE.InstancedMesh | null>;
-  bottleRef: RefObject<THREE.InstancedMesh | null>;
-}) {
-  const canGltf = useGLTF("/models/can.glb");
-  const bottleGltf = useGLTF("/models/plastic_bottle.glb");
-  const canMesh = useMemo(() => findFirstMesh(canGltf.scene), [canGltf.scene]);
-  const bottleMesh = useMemo(() => findFirstMesh(bottleGltf.scene), [bottleGltf.scene]);
-
-  useEffect(() => {
-    if (canRef.current) canRef.current.count = canTrashAgents.length;
-    if (bottleRef.current) bottleRef.current.count = bottleTrashAgents.length;
-  }, [bottleRef, bottleTrashAgents.length, canRef, canTrashAgents.length]);
+function TrashMesh({ agent }: { agent: AgentState }) {
+  const useCan = isCanTrash(agent.id);
+  const modelPath = useCan ? "/models/can.glb" : "/models/plastic_bottle.glb";
+  const { scene } = useGLTF(modelPath);
+  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const scale = useCan ? CAN_SCALE : BOTTLE_SCALE;
+  const rotationY = trashRotationY(agent.id);
 
   return (
-    <>
-      {canMesh && (
-        <instancedMesh
-          ref={canRef}
-          args={[
-            canMesh.geometry,
-            canMesh.material as THREE.Material,
-            Math.max(canTrashAgents.length, 1),
-          ]}
-          count={canTrashAgents.length}
-          frustumCulled={false}
-        />
-      )}
-      {bottleMesh && (
-        <instancedMesh
-          ref={bottleRef}
-          args={[
-            bottleMesh.geometry,
-            bottleMesh.material as THREE.Material,
-            Math.max(bottleTrashAgents.length, 1),
-          ]}
-          count={bottleTrashAgents.length}
-          frustumCulled={false}
-        />
-      )}
-      {discoveredTrashAgents.map((agent) => (
-        <mesh
-          key={`ring-${agent.id}`}
-          position={[agent.x - cx, 1, agent.y - cz]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          renderOrder={1}
-        >
-          <ringGeometry args={[25, 34, 48]} />
-          <meshBasicMaterial
-            color="#ef4444"
-            transparent
-            opacity={0.9}
-            side={THREE.DoubleSide}
-            depthTest={false}
-          />
-        </mesh>
-      ))}
-    </>
+    <TurnTowardVelocity>
+      <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
+    </TurnTowardVelocity>
   );
 }
 
@@ -424,11 +354,13 @@ function AgentNode({
   cx,
   cz,
   registerAgentGroup,
+  discovered,
 }: {
   agent: AgentState;
   cx: number;
   cz: number;
   registerAgentGroup: (id: string, group: THREE.Group | null) => void;
+  discovered: boolean;
 }) {
   const wx = agent.x - cx;
   const wz = agent.y - cz;
@@ -466,6 +398,11 @@ function AgentNode({
           <FishMesh agent={agent} />
         </ModelErrorBoundary>
       )}
+      {agent.agent_type === "trash" && (
+        <ModelErrorBoundary fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
+          <TrashMesh agent={agent} />
+        </ModelErrorBoundary>
+      )}
     </group>
   );
 }
@@ -490,13 +427,6 @@ function AgentsLayer({
   cz: number;
 }) {
   const agentGroupsRef = useRef(new Map<string, THREE.Group>());
-  const canTrashRef = useRef<THREE.InstancedMesh | null>(null);
-  const bottleTrashRef = useRef<THREE.InstancedMesh | null>(null);
-  const matrix = useMemo(() => new THREE.Matrix4(), []);
-  const position = useMemo(() => new THREE.Vector3(), []);
-  const quaternion = useMemo(() => new THREE.Quaternion(), []);
-  const euler = useMemo(() => new THREE.Euler(), []);
-  const scale = useMemo(() => new THREE.Vector3(), []);
 
   const registerAgentGroup = useCallback((id: string, group: THREE.Group | null) => {
     if (group) {
@@ -506,26 +436,7 @@ function AgentsLayer({
     }
   }, []);
 
-  const visibleAgents = useMemo(
-    () => agents.filter((agent) => agent.agent_type !== "trash"),
-    [agents],
-  );
-  const trashAgents = useMemo(
-    () => agents.filter((agent) => agent.agent_type === "trash"),
-    [agents],
-  );
-  const canTrashAgents = useMemo(
-    () => trashAgents.filter((agent) => isCanTrash(agent.id)),
-    [trashAgents],
-  );
-  const bottleTrashAgents = useMemo(
-    () => trashAgents.filter((agent) => !isCanTrash(agent.id)),
-    [trashAgents],
-  );
-  const discoveredTrashAgents = useMemo(
-    () => trashAgents.filter((agent) => discoveredSet.has(agent.id)),
-    [discoveredSet, trashAgents],
-  );
+  const visibleAgents = useMemo(() => agents, [agents]);
 
   useFrame((_, delta) => {
     const alpha = 1 - Math.exp(-POSITION_FOLLOW_RATE * delta);
@@ -559,29 +470,7 @@ function AgentsLayer({
         group.rotation.y += diff * 0.2;
       }
     }
-
-    updateTrashInstances(canTrashRef.current, canTrashAgents, CAN_SCALE);
-    updateTrashInstances(bottleTrashRef.current, bottleTrashAgents, BOTTLE_SCALE);
   });
-
-  function updateTrashInstances(
-    mesh: THREE.InstancedMesh | null,
-    list: AgentState[],
-    scalar: number,
-  ) {
-    if (!mesh) return;
-    mesh.count = list.length;
-    scale.setScalar(scalar);
-    for (let index = 0; index < list.length; index++) {
-      const agent = list[index];
-      position.set(agent.x - cx, 8, agent.y - cz);
-      euler.set(0, trashRotationY(agent.id), 0);
-      quaternion.setFromEuler(euler);
-      matrix.compose(position, quaternion, scale);
-      mesh.setMatrixAt(index, matrix);
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-  }
 
   return (
     <>
@@ -592,29 +481,9 @@ function AgentsLayer({
           cx={cx}
           cz={cz}
           registerAgentGroup={registerAgentGroup}
+          discovered={agent.agent_type === "trash" && discoveredSet.has(agent.id)}
         />
       ))}
-      <ModelErrorBoundary
-        fallback={
-          <>
-            {trashAgents.map((agent) => (
-              <group key={agent.id} position={[agent.x - cx, 8, agent.y - cz]}>
-                <TrashFallback id={agent.id} discovered={discoveredSet.has(agent.id)} />
-              </group>
-            ))}
-          </>
-        }
-      >
-        <TrashInstances
-          canTrashAgents={canTrashAgents}
-          bottleTrashAgents={bottleTrashAgents}
-          discoveredTrashAgents={discoveredTrashAgents}
-          cx={cx}
-          cz={cz}
-          canRef={canTrashRef}
-          bottleRef={bottleTrashRef}
-        />
-      </ModelErrorBoundary>
     </>
   );
 }

@@ -78,13 +78,13 @@ class SimulationEngineTests(unittest.TestCase):
         )
         collector = next(agent for agent in engine.collectors if not agent.is_manual)
 
-        engine.delivered_trash = 41
+        engine.delivered_trash = 83
         collector.update(engine)
         self.assertFalse(collector.is_upgraded)
         self.assertEqual(engine.collector_carrying_capacity(), 1)
         self.assertEqual(collector.speed, 4.0)
 
-        engine.delivered_trash = 42
+        engine.delivered_trash = 84
         collector.update(engine)
         self.assertTrue(collector.is_upgraded)
         self.assertEqual(engine.collector_carrying_capacity(), 2)
@@ -103,7 +103,7 @@ class SimulationEngineTests(unittest.TestCase):
             )
         )
         collector = next(agent for agent in engine.collectors if not agent.is_manual)
-        engine.delivered_trash = 42
+        engine.delivered_trash = 84
         trash_a = Trash(engine.base.x, engine.base.y, 0.0)
         trash_b = Trash(engine.base.x, engine.base.y, 0.0)
         engine.agents.extend([trash_a, trash_b])
@@ -116,10 +116,10 @@ class SimulationEngineTests(unittest.TestCase):
         collector.y = engine.base.y
         engine._resolve_base_interactions()
 
-        self.assertEqual(engine.delivered_trash, 44)
+        self.assertEqual(engine.delivered_trash, 86)
         self.assertEqual(collector.carrying_trash_ids, [])
 
-    def test_score_1000_completes_simulation(self) -> None:
+    def test_score_2000_completes_simulation(self) -> None:
         engine = SimulationEngine(
             SimulationConfig(
                 scout_count=0,
@@ -132,12 +132,12 @@ class SimulationEngineTests(unittest.TestCase):
                 steps=6000,
             )
         )
-        engine.delivered_trash = 83
+        engine.delivered_trash = 166
         engine.start()
         engine.step()
         self.assertEqual(engine.phase, "running")
 
-        engine.delivered_trash = 84
+        engine.delivered_trash = 167
         engine.step()
         self.assertEqual(engine.phase, "completed")
         self.assertFalse(engine.running)
