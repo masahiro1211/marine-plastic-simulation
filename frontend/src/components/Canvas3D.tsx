@@ -288,7 +288,14 @@ function findFirstMesh(root: THREE.Object3D): THREE.Mesh | null {
       mesh = child as THREE.Mesh;
     }
   });
-  return mesh;
+  if (!mesh) return null;
+  // シーンルートから当該メッシュまでのワールド行列をジオメトリに焼き込む。
+  // これをやらないと <primitive object={scene}> のときに効いていた親ノードの
+  // スケール／回転が InstancedMesh では失われ、見た目が桁違いに変わる。
+  root.updateMatrixWorld(true);
+  const baked = (mesh as THREE.Mesh).geometry.clone();
+  baked.applyMatrix4((mesh as THREE.Mesh).matrixWorld);
+  return new THREE.Mesh(baked, (mesh as THREE.Mesh).material);
 }
 
 function isCanTrash(id: string): boolean {
