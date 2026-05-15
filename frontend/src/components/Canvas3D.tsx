@@ -37,10 +37,10 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
 
 // Trash GLBs are already authored close to scene scale; keep these small so
 // instanced trash stays visually comparable to the other agents.
-const CAN_SCALE = 12;
-const BOTTLE_SCALE = 9;
-const CARRIED_CAN_SCALE = 7;
-const CARRIED_BOTTLE_SCALE = 5;
+const CAN_SCALE = 18;
+const BOTTLE_SCALE = 18;
+const CARRIED_CAN_SCALE = 14;
+const CARRIED_BOTTLE_SCALE = 10;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
