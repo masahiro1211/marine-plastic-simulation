@@ -36,10 +36,10 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
 
 // Trash GLBs are already authored close to scene scale; keep these small so
 // the full models stay visually comparable to the other agents.
-const CAN_SCALE = 12;
-const BOTTLE_SCALE = 9;
-const CARRIED_CAN_SCALE = 7;
-const CARRIED_BOTTLE_SCALE = 5;
+const CAN_SCALE = 120;
+const BOTTLE_SCALE = 90;
+const CARRIED_CAN_SCALE = 70;
+const CARRIED_BOTTLE_SCALE = 50;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -342,12 +342,12 @@ function TrashFallback({ id, discovered }: { id: string; discovered: boolean }) 
   return (
     <group>
       <mesh rotation={rotation}>
-        <boxGeometry args={[7, 5, 10]} />
+        <boxGeometry args={[70, 50, 100]} />
         <meshStandardMaterial color={color} roughness={0.85} metalness={0.05} />
       </mesh>
       {discovered && (
         <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[14, 18, 48]} />
+          <ringGeometry args={[140, 180, 48]} />
           <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
         </mesh>
       )}
