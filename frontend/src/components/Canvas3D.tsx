@@ -171,7 +171,7 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
 }
 
 const SCOUT_YAW_OFFSET = Math.PI;
-const SCOUT_BASE_SCALE = 4;
+const SCOUT_BASE_SCALE = 3.2;
 
 function ScoutMesh({ agent }: { agent: AgentState }) {
   const { scene, animations } = useGLTF("/models/scout.glb");
