@@ -310,7 +310,7 @@ function TrashMesh({ agent, discovered }: { agent: AgentState; discovered: boole
       <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
       {discovered && (
         <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-          <ringGeometry args={[140, 180, 48]} />
+          <ringGeometry args={[28, 36, 48]} />
           <meshBasicMaterial
             color="#ef4444"
             transparent
@@ -359,7 +359,7 @@ function TrashFallback({ id, discovered }: { id: string; discovered: boolean }) 
       </mesh>
       {discovered && (
         <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[140, 180, 48]} />
+          <ringGeometry args={[28, 36, 48]} />
           <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
         </mesh>
       )}
