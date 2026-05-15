@@ -34,7 +34,7 @@ interface DeltaItem {
 }
 
 /**
- * Render a small "+100" / "−20" burst that floats up from the top of the score
+ * Render a small "+12" / "−20" burst that floats up from the top of the score
  * card whenever the total score changes.
  *
  * @param props Component props.
@@ -202,7 +202,7 @@ export default function StatsPanel({
         {/* Score legend */}
         <div className="flex gap-3 mt-3 pt-3 border-t border-[#eef4f6] text-[11px] text-[#5d7a85]">
           <div>
-            <span className="text-[#1a9a7e] font-bold">+100</span>
+            <span className="text-[#1a9a7e] font-bold">+12</span>
             <span className="ml-1">回収</span>
           </div>
           <div>

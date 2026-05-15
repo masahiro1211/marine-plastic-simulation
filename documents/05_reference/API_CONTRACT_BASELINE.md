@@ -89,7 +89,7 @@
 
 ```json
 {
-  "total": 1180.0,
+  "total": 124.0,
   "trash_delivered": 12,
   "collisions": 1,
   "energy_remaining": 210.0

@@ -54,7 +54,7 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
-        self.assertEqual(engine.get_snapshot()["score"]["total"], 100)
+        self.assertEqual(engine.get_snapshot()["score"]["total"], 12)
 
     def test_default_runtime_is_about_five_minutes(self) -> None:
         config = SimulationConfig()
@@ -78,13 +78,13 @@ class SimulationEngineTests(unittest.TestCase):
         )
         collector = next(agent for agent in engine.collectors if not agent.is_manual)
 
-        engine.delivered_trash = 4
+        engine.delivered_trash = 41
         collector.update(engine)
         self.assertFalse(collector.is_upgraded)
         self.assertEqual(engine.collector_carrying_capacity(), 1)
         self.assertEqual(collector.speed, 4.0)
 
-        engine.delivered_trash = 5
+        engine.delivered_trash = 42
         collector.update(engine)
         self.assertTrue(collector.is_upgraded)
         self.assertEqual(engine.collector_carrying_capacity(), 2)
@@ -103,7 +103,7 @@ class SimulationEngineTests(unittest.TestCase):
             )
         )
         collector = next(agent for agent in engine.collectors if not agent.is_manual)
-        engine.delivered_trash = 5
+        engine.delivered_trash = 42
         trash_a = Trash(engine.base.x, engine.base.y, 0.0)
         trash_b = Trash(engine.base.x, engine.base.y, 0.0)
         engine.agents.extend([trash_a, trash_b])
@@ -116,7 +116,7 @@ class SimulationEngineTests(unittest.TestCase):
         collector.y = engine.base.y
         engine._resolve_base_interactions()
 
-        self.assertEqual(engine.delivered_trash, 7)
+        self.assertEqual(engine.delivered_trash, 44)
         self.assertEqual(collector.carrying_trash_ids, [])
 
     def test_score_1000_completes_simulation(self) -> None:
@@ -132,12 +132,12 @@ class SimulationEngineTests(unittest.TestCase):
                 steps=6000,
             )
         )
-        engine.delivered_trash = 9
+        engine.delivered_trash = 83
         engine.start()
         engine.step()
         self.assertEqual(engine.phase, "running")
 
-        engine.delivered_trash = 10
+        engine.delivered_trash = 84
         engine.step()
         self.assertEqual(engine.phase, "completed")
         self.assertFalse(engine.running)
