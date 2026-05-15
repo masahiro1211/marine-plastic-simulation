@@ -123,13 +123,19 @@ function useManagedAnimations(
 }
 
 class ModelErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
+  { children: ReactNode; fallback: ReactNode; resetKey: string },
   { hasError: boolean }
 > {
   state = { hasError: false };
 
   static getDerivedStateFromError() {
     return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps: Readonly<{ resetKey: string }>) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
   }
 
   render() {
@@ -379,28 +385,50 @@ function AgentNode({
   return (
     <group ref={setGroupRef} position={initialPositionRef.current}>
       {agent.agent_type === "predator" && (
-        <ModelErrorBoundary fallback={<PredatorFallback agent={agent} />}>
-          <OrcaPredator agent={agent} />
+        <ModelErrorBoundary resetKey="/models/orca.glb" fallback={<PredatorFallback agent={agent} />}>
+          <Suspense fallback={<PredatorFallback agent={agent} />}>
+            <OrcaPredator agent={agent} />
+          </Suspense>
         </ModelErrorBoundary>
       )}
       {agent.agent_type === "scout" && (
-        <ModelErrorBoundary fallback={<ScoutFallback agent={agent} />}>
-          <ScoutMesh agent={agent} />
+        <ModelErrorBoundary resetKey="/models/scout.glb" fallback={<ScoutFallback agent={agent} />}>
+          <Suspense fallback={<ScoutFallback agent={agent} />}>
+            <ScoutMesh agent={agent} />
+          </Suspense>
         </ModelErrorBoundary>
       )}
       {agent.agent_type === "collector" && (
-        <ModelErrorBoundary fallback={<CollectorFallback agent={agent} />}>
-          <CollectorMesh agent={agent} />
+        <ModelErrorBoundary
+          resetKey={agent.metadata?.is_manual ? "/models/collector_manual.glb" : "/models/collector.glb"}
+          fallback={<CollectorFallback agent={agent} />}
+        >
+          <Suspense fallback={<CollectorFallback agent={agent} />}>
+            <CollectorMesh agent={agent} />
+          </Suspense>
         </ModelErrorBoundary>
       )}
       {agent.agent_type === "marine_life" && (
-        <ModelErrorBoundary fallback={<FishFallback agent={agent} />}>
-          <FishMesh agent={agent} />
+        <ModelErrorBoundary
+          resetKey={
+            FISH_MODEL_BY_SPECIES[Number(agent.metadata?.species_id ?? 0)] ??
+            FISH_MODEL_BY_SPECIES[0]
+          }
+          fallback={<FishFallback agent={agent} />}
+        >
+          <Suspense fallback={<FishFallback agent={agent} />}>
+            <FishMesh agent={agent} />
+          </Suspense>
         </ModelErrorBoundary>
       )}
       {agent.agent_type === "trash" && (
-        <ModelErrorBoundary fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
-          <TrashMesh agent={agent} />
+        <ModelErrorBoundary
+          resetKey={isCanTrash(agent.id) ? "/models/can.glb" : "/models/plastic_bottle.glb"}
+          fallback={<TrashFallback id={agent.id} discovered={discovered} />}
+        >
+          <Suspense fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
+            <TrashMesh agent={agent} />
+          </Suspense>
         </ModelErrorBoundary>
       )}
     </group>
@@ -749,14 +777,12 @@ export default function Canvas3D({
             </group>
           )}
 
-          <Suspense fallback={null}>
-            <AgentsLayer
-              agents={agents}
-              discoveredSet={discoveredSet}
-              cx={cx}
-              cz={cz}
-            />
-          </Suspense>
+          <AgentsLayer
+            agents={agents}
+            discoveredSet={discoveredSet}
+            cx={cx}
+            cz={cz}
+          />
         </AnimationMixerRegistry>
 
       </ThreeCanvas>
