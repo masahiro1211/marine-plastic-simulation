@@ -35,6 +35,8 @@ const API_URL = trimTrailingSlash(
 );
 const WS_URL =
   env.VITE_WS_URL ?? env.REACT_APP_WS_URL ?? websocketUrlFromApiUrl(API_URL);
+const LIVE_SNAPSHOT_STATE_INTERVAL_MS = 100;
+const MANUAL_INPUT_FAST_SNAPSHOT_WINDOW_MS = 250;
 
 const DEFAULT_STATS: SimulationStats = {
   scouts: 0,
@@ -55,6 +57,56 @@ const DEFAULT_SCORE: ScoreState = {
 };
 
 const DEFAULT_BASE: BaseState = { x: 480, y: 604, radius: 48 };
+
+function shallowObjectEqual<T extends Record<string, unknown>>(left: T, right: T): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
+function baseStateEqual(left: BaseState, right: BaseState): boolean {
+  return left.x === right.x && left.y === right.y && left.radius === right.radius;
+}
+
+function stringArrayEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function metadataValueEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+  return false;
+}
+
+function metadataEqual(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => metadataValueEqual(left[key], right[key]));
+}
+
+function agentStateEqual(left: AgentState, right: AgentState): boolean {
+  return (
+    left.id === right.id &&
+    left.agent_type === right.agent_type &&
+    left.role === right.role &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.vx === right.vx &&
+    left.vy === right.vy &&
+    left.alive === right.alive &&
+    left.status === right.status &&
+    left.energy === right.energy &&
+    left.target_id === right.target_id &&
+    metadataEqual(left.metadata, right.metadata)
+  );
+}
 
 interface SimulationState {
   agents: AgentState[];
@@ -91,6 +143,10 @@ export default function useSimulation(): SimulationState {
   const [phase, setPhase] = useState<SimulationPhase>("idle");
   const [connected, setConnected] = useState<boolean>(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const latestSnapshotRef = useRef<Partial<SimulationSnapshot> | null>(null);
+  const snapshotTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const lastSnapshotAppliedAtRef = useRef<number>(0);
+  const lastManualMoveSentAtRef = useRef<number>(0);
 
   /**
    * Apply a partial snapshot payload to local React state.
@@ -98,19 +154,90 @@ export default function useSimulation(): SimulationState {
    * @param data Snapshot payload received from REST or WebSocket.
    */
   const applySnapshot = useCallback((data: Partial<SimulationSnapshot>) => {
-    setAgents(data.agents ?? []);
+    setAgents((current) => {
+      const next = data.agents ?? [];
+      if (current === next) return current;
+      if (current.length !== next.length) return next;
+      for (let i = 0; i < next.length; i++) {
+        if (!agentStateEqual(current[i], next[i])) return next;
+      }
+      return current;
+    });
     setStats(data.stats ?? DEFAULT_STATS);
     setScore(data.score ?? DEFAULT_SCORE);
     setTick(data.tick ?? 0);
     setPhase(data.phase ?? "idle");
     if (data.config) {
-      setConfig(data.config);
+      setConfig((current) =>
+        shallowObjectEqual(
+          current as unknown as Record<string, unknown>,
+          data.config as unknown as Record<string, unknown>,
+        )
+          ? current
+          : data.config as SimulationConfig
+      );
     }
     if (data.base) {
-      setBase(data.base);
+      setBase((current) => (baseStateEqual(current, data.base as BaseState) ? current : data.base as BaseState));
     }
-    setDiscoveredTrashIds(data.discovered_trash_ids ?? []);
+    const nextDiscoveredTrashIds = data.discovered_trash_ids ?? [];
+    setDiscoveredTrashIds((current) =>
+      stringArrayEqual(current, nextDiscoveredTrashIds) ? current : nextDiscoveredTrashIds
+    );
   }, []);
+
+  const clearSnapshotTimer = useCallback(() => {
+    if (snapshotTimerRef.current) {
+      window.clearTimeout(snapshotTimerRef.current);
+      snapshotTimerRef.current = null;
+    }
+  }, []);
+
+  const flushLatestSnapshot = useCallback(() => {
+    const snapshot = latestSnapshotRef.current;
+    if (!snapshot) return;
+    latestSnapshotRef.current = null;
+    clearSnapshotTimer();
+    lastSnapshotAppliedAtRef.current = performance.now();
+    applySnapshot(snapshot);
+  }, [applySnapshot, clearSnapshotTimer]);
+
+  const scheduleSnapshot = useCallback(
+    (data: Partial<SimulationSnapshot>, immediate = false) => {
+      if (immediate || data.phase !== "running") {
+        latestSnapshotRef.current = null;
+        clearSnapshotTimer();
+        lastSnapshotAppliedAtRef.current = performance.now();
+        applySnapshot(data);
+        return;
+      }
+
+      latestSnapshotRef.current = data;
+      const now = performance.now();
+      if (now - lastManualMoveSentAtRef.current < MANUAL_INPUT_FAST_SNAPSHOT_WINDOW_MS) {
+        latestSnapshotRef.current = null;
+        clearSnapshotTimer();
+        lastSnapshotAppliedAtRef.current = now;
+        applySnapshot(data);
+        return;
+      }
+
+      const elapsed = now - lastSnapshotAppliedAtRef.current;
+
+      if (elapsed >= LIVE_SNAPSHOT_STATE_INTERVAL_MS) {
+        flushLatestSnapshot();
+        return;
+      }
+
+      if (!snapshotTimerRef.current) {
+        snapshotTimerRef.current = window.setTimeout(
+          flushLatestSnapshot,
+          LIVE_SNAPSHOT_STATE_INTERVAL_MS - elapsed,
+        );
+      }
+    },
+    [applySnapshot, clearSnapshotTimer, flushLatestSnapshot],
+  );
 
   /**
    * Open the simulation WebSocket and start receiving tick snapshots.
@@ -126,9 +253,9 @@ export default function useSimulation(): SimulationState {
     ws.onclose = () => setConnected(false);
     ws.onmessage = (event: MessageEvent<string>) => {
       const data: SimulationSnapshot = JSON.parse(event.data);
-      applySnapshot(data);
+      scheduleSnapshot(data);
     };
-  }, [applySnapshot]);
+  }, [scheduleSnapshot]);
 
   /**
    * Close the active simulation WebSocket connection if one exists.
@@ -174,7 +301,10 @@ export default function useSimulation(): SimulationState {
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
 
   const manualMove = useCallback(
-    (dx: number, dy: number) => sendAction("manual_move", { dx, dy }),
+    (dx: number, dy: number) => {
+      lastManualMoveSentAtRef.current = performance.now();
+      sendAction("manual_move", { dx, dy });
+    },
     [sendAction]
   );
 
@@ -195,9 +325,9 @@ export default function useSimulation(): SimulationState {
       setConfig(result.config ?? DEFAULT_SIMULATION_CONFIG);
 
       const snapshotResponse = await fetch(`${API_URL}/api/simulation/snapshot`);
-      applySnapshot((await snapshotResponse.json()) as SimulationSnapshot);
+      scheduleSnapshot((await snapshotResponse.json()) as SimulationSnapshot, true);
     },
-    [applySnapshot]
+    [scheduleSnapshot]
   );
 
   /**
@@ -217,16 +347,17 @@ export default function useSimulation(): SimulationState {
       .then((response) => response.json() as Promise<SimulationSnapshot>)
       .then((data) => {
         if (mounted) {
-          applySnapshot(data);
+          scheduleSnapshot(data, true);
         }
       })
       .catch(() => {});
 
     return () => {
       mounted = false;
+      clearSnapshotTimer();
       disconnect();
     };
-  }, [applySnapshot, disconnect]);
+  }, [clearSnapshotTimer, disconnect, scheduleSnapshot]);
 
   return {
     agents,
