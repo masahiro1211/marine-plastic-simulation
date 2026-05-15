@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -67,16 +68,30 @@ class SimulationConfig(BaseModel):
         panic_contagion_radius: Distance within which panic spreads between same-species fish.
         panic_heading_noise: Per-fish random heading perturbation while panicking (radians).
         panic_speed_factor: Speed multiplier applied while a fish is panicking.
+        panic_separation_weight: Mutual repulsion weight between fish while panicking,
+            driving explosive flash expansion of the school.
+        panic_burst_factor: Extra speed multiplier at panic onset (startle burst),
+            decaying linearly back to 1.0 over panic_burst_ticks.
+        panic_burst_ticks: Number of ticks the startle burst decays over.
         predator_count: Number of predators to spawn.
         predator_speed: Base cruise speed of each predator.
         predator_chase_speed_factor: Speed multiplier applied while chasing prey.
         predator_sensor_radius: Detection radius beyond which predators ignore prey.
         predator_panic_radius: Distance to a predator below which a fish enters panic mode.
+        predator_preferred_distance: Standoff distance the predator keeps from prey; it
+            aims short of the fish and slows to orbit speed once inside this range.
+        predator_lunge_factor: Extra chase-speed multiplier when the target fish enters
+            panic (predator-side startle response).
+        predator_lunge_ticks: Number of ticks the lunge boost decays over.
         predator_cluster_min_size: Minimum cluster size before the predator switches from
             nearest-fish targeting to centroid targeting.
         predator_levy_min_steps: Minimum straight-line ticks per cruise leg.
         predator_levy_max_steps: Maximum straight-line ticks per cruise leg.
         predator_levy_mu: Lévy exponent for cruise leg length sampling.
+        predator_wall_repulsion_radius: Distance from world edges below which
+            a gradient wall-repulsion force begins steering the predator away.
+        predator_wall_repulsion_weight: Strength multiplier for the predator
+            wall-repulsion vector.
     """
 
     model_config = ConfigDict(extra="ignore", allow_inf_nan=False)
@@ -104,7 +119,7 @@ class SimulationConfig(BaseModel):
     scout_sensor_radius: float = Field(default=110, ge=0, le=1000)
     collector_sensor_radius: float = Field(default=42, ge=0, le=1000)
     collector_pickup_radius: float = Field(default=16, ge=0, le=500)
-    marine_life_avoid_radius: float = Field(default=130, ge=0, le=1000)
+    marine_life_avoid_radius: float = Field(default=140, ge=0, le=1000)
     collision_radius: float = Field(default=18, ge=0, le=500)
     base_radius: float = Field(default=48, ge=1, le=500)
 
@@ -135,7 +150,7 @@ class SimulationConfig(BaseModel):
     flock_zoa_radius: float = Field(default=110, ge=0, le=1000)
     flock_alignment_weight: float = Field(default=0.6, ge=0, le=10)
     flock_cohesion_weight: float = Field(default=0.35, ge=0, le=10)
-    flock_max_turn_rate: float = Field(default=0.35, ge=0, le=6.2832)
+    flock_max_turn_rate: float = Field(default=0.45, ge=0, le=6.2832)
     flock_noise: float = Field(default=0.08, ge=0, le=6.2832)
 
     wall_repulsion_radius: float = Field(default=60.0, ge=0, le=1000)
@@ -143,27 +158,36 @@ class SimulationConfig(BaseModel):
 
     habitat_drift_weight: float = Field(default=0.0, ge=0, le=10)
 
-    speed_evade_factor: float = Field(default=1.4, ge=0, le=10)
+    speed_evade_factor: float = Field(default=1.55, ge=0, le=10)
     speed_zor_factor: float = Field(default=0.7, ge=0, le=10)
-    speed_adapt_rate: float = Field(default=0.1, ge=0, le=1)
+    speed_adapt_rate: float = Field(default=0.25, ge=0, le=1)
 
     inter_species_repulsion_radius: float = Field(default=80.0, ge=0, le=1000)
     inter_species_repulsion_weight: float = Field(default=2.5, ge=0, le=10)
 
     panic_radius: float = Field(default=45.0, ge=0, le=1000)
     panic_contagion_radius: float = Field(default=60.0, ge=0, le=1000)
-    panic_heading_noise: float = Field(default=0.8, ge=0, le=6.2832)
-    panic_speed_factor: float = Field(default=2.2, ge=0, le=10)
+    panic_heading_noise: float = Field(default=0.4, ge=0, le=6.2832)
+    panic_speed_factor: float = Field(default=2.0, ge=0, le=10)
+    panic_separation_weight: float = Field(default=2.5, ge=0, le=10)
+    panic_burst_factor: float = Field(default=1.5, ge=1, le=5)
+    panic_burst_ticks: int = Field(default=6, ge=0, le=100)
 
     predator_count: int = Field(default=1, ge=0, le=20)
     predator_speed: float = Field(default=3.0, ge=0, le=20)
-    predator_chase_speed_factor: float = Field(default=1.4, ge=0, le=10)
+    predator_chase_speed_factor: float = Field(default=1.7, ge=0, le=10)
+    predator_max_turn_rate: float = Field(default=0.15, ge=0, le=math.pi)
     predator_sensor_radius: float = Field(default=200.0, ge=0, le=1000)
-    predator_panic_radius: float = Field(default=75.0, ge=0, le=1000)
+    predator_panic_radius: float = Field(default=85.0, ge=0, le=1000)
+    predator_preferred_distance: float = Field(default=45.0, ge=0, le=500)
+    predator_lunge_factor: float = Field(default=1.5, ge=1, le=5)
+    predator_lunge_ticks: int = Field(default=8, ge=0, le=100)
     predator_cluster_min_size: int = Field(default=3, ge=1, le=200)
     predator_levy_min_steps: int = Field(default=30, ge=1, le=10_000)
     predator_levy_max_steps: int = Field(default=180, ge=1, le=10_000)
     predator_levy_mu: float = Field(default=2.0, ge=1, le=5)
+    predator_wall_repulsion_radius: float = Field(default=60.0, ge=0, le=1000)
+    predator_wall_repulsion_weight: float = Field(default=2.5, ge=0, le=10)
 
     sharing_mode: Literal["global", "local"] = "global"
     enable_manual_robot: bool = True

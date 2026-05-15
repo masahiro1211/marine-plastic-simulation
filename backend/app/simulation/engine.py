@@ -268,6 +268,7 @@ class SimulationEngine:
             fish.update(self)
 
         self._resolve_collisions()
+        self._push_fish_from_predators()
         self._resolve_base_interactions()
         self._cleanup_shared_targets()
         self._record_history()
@@ -767,6 +768,25 @@ class SimulationEngine:
                             tick=self.tick,
                         )
                     )
+
+    def _push_fish_from_predators(self) -> None:
+        """Resolve predator-fish overlap by pushing the fish clear.
+
+        Position-level hard separation that runs after all agents have
+        moved: when a predator and a fish are closer than the sum of their
+        radii, the fish is displaced outward so the two never render as
+        overlapping. The predator is treated as immovable.
+        """
+        for pred in self.predators:
+            for fish in self.marine_life:
+                min_dist = pred.radius + fish.radius
+                dist = pred.distance_to(fish)
+                if 0 < dist < min_dist:
+                    overlap = min_dist - dist
+                    nx = (fish.x - pred.x) / dist
+                    ny = (fish.y - pred.y) / dist
+                    fish.x = min(max(fish.x + nx * overlap, 0), self.config.width)
+                    fish.y = min(max(fish.y + ny * overlap, 0), self.config.height)
 
     def _cleanup_shared_targets(self) -> None:
         """Drop shared targets that no longer correspond to active trash."""

@@ -5,7 +5,7 @@ import random
 
 from app.models.schemas import SimulationConfig
 from app.simulation.engine import SimulationEngine
-from app.simulation.agents import Collector, Trash
+from app.simulation.agents import Collector, MarineLife, Predator, Trash
 
 
 class SimulationEngineTests(unittest.TestCase):
@@ -268,5 +268,31 @@ class SimulationEngineTests(unittest.TestCase):
         self.assertGreater(manual.x, engine.config.width / 2)
         self.assertGreater(manual.vx, 0.0)
         self.assertEqual(manual.status, "slowed_down")
+
+    def test_push_fish_from_predators_removes_overlap(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                predator_count=0,
+                initial_trash_count=0,
+                trash_spawn_interval=0,
+                steps=10,
+                enable_manual_robot=False,
+            )
+        )
+        predator = Predator(x=400, y=300, speed=engine.config.predator_speed)
+        fish = MarineLife(x=410, y=300, speed=engine.config.marine_life_speed)
+        engine.agents.extend([predator, fish])
+
+        min_dist = predator.radius + fish.radius
+        self.assertLess(predator.distance_to(fish), min_dist)
+
+        engine._push_fish_from_predators()
+
+        self.assertGreaterEqual(predator.distance_to(fish), min_dist - 1e-6)
+
+
 if __name__ == "__main__":
     unittest.main()
