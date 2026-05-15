@@ -1,24 +1,12 @@
-import {
-  Component,
-  Suspense,
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  type RefObject,
-  type ReactNode,
-} from "react";
+import { Component, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useTexture } from "@react-three/drei";
+import { useGLTF, useAnimations, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { AgentState, BaseState } from "../types";
 
 export type CameraPreset = "angle" | "top";
 
-useGLTF.setDecoderPath("/draco/");
 useGLTF.preload("/models/orca.glb");
 useGLTF.preload("/models/collector.glb");
 useGLTF.preload("/models/collector_manual.glb");
@@ -48,78 +36,6 @@ const ORCA_YAW_OFFSET = Math.PI;
 const ORCA_BASE_SCALE = 4.5;
 const POSITION_FOLLOW_RATE = 18;
 const POSITION_SNAP_DISTANCE = 180;
-const FISH_ANIMATION_UPDATE_INTERVAL = 1 / 20;
-const FULL_RATE_ANIMATION_UPDATE_INTERVAL = 0;
-
-interface AnimationRegistry {
-  register: (mixer: THREE.AnimationMixer, updateInterval: number) => () => void;
-}
-
-const AnimationRegistryContext = createContext<AnimationRegistry | null>(null);
-
-function AnimationMixerRegistry({ children }: { children: ReactNode }) {
-  const registrationsRef = useRef(
-    new Map<THREE.AnimationMixer, { elapsed: number; updateInterval: number }>(),
-  );
-
-  const register = useCallback((mixer: THREE.AnimationMixer, updateInterval: number) => {
-    registrationsRef.current.set(mixer, { elapsed: 0, updateInterval });
-    return () => {
-      registrationsRef.current.delete(mixer);
-    };
-  }, []);
-
-  useFrame((_, delta) => {
-    registrationsRef.current.forEach((registration, mixer) => {
-      if (registration.updateInterval <= 0) {
-        mixer.update(delta);
-        return;
-      }
-      registration.elapsed += delta;
-      if (registration.elapsed >= registration.updateInterval) {
-        mixer.update(registration.elapsed);
-        registration.elapsed = 0;
-      }
-    });
-  });
-
-  const value = useMemo(() => ({ register }), [register]);
-
-  return (
-    <AnimationRegistryContext.Provider value={value}>
-      {children}
-    </AnimationRegistryContext.Provider>
-  );
-}
-
-function useManagedAnimations(
-  animations: THREE.AnimationClip[],
-  root: THREE.Object3D,
-  updateInterval = FULL_RATE_ANIMATION_UPDATE_INTERVAL,
-) {
-  const registry = useContext(AnimationRegistryContext);
-  const mixer = useMemo(() => new THREE.AnimationMixer(root), [root]);
-  const names = useMemo(() => animations.map((clip) => clip.name), [animations]);
-  const actions = useMemo(() => {
-    return Object.fromEntries(
-      animations.map((clip) => [clip.name, mixer.clipAction(clip, root)]),
-    ) as Record<string, THREE.AnimationAction>;
-  }, [animations, mixer, root]);
-
-  useEffect(() => {
-    if (!registry || animations.length === 0) return;
-    return registry.register(mixer, updateInterval);
-  }, [animations.length, mixer, registry, updateInterval]);
-
-  useEffect(() => {
-    return () => {
-      mixer.stopAllAction();
-      mixer.uncacheRoot(root);
-    };
-  }, [mixer, root]);
-
-  return { actions, names };
-}
 
 class ModelErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
@@ -137,17 +53,36 @@ class ModelErrorBoundary extends Component<
 }
 
 function TurnTowardVelocity({
+  agent,
+  yawOffset = 0,
   children,
 }: {
+  agent: AgentState;
+  yawOffset?: number;
   children: ReactNode;
 }) {
-  return <group>{children}</group>;
+  const ref = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const g = ref.current;
+    if (!g) return;
+    const { vx, vy } = agent;
+    if (vx * vx + vy * vy > 1e-3) {
+      const target = Math.atan2(vx, vy) + yawOffset;
+      const cur = g.rotation.y;
+      let diff = target - cur;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      g.rotation.y = cur + diff * 0.2;
+    }
+  });
+
+  return <group ref={ref}>{children}</group>;
 }
 
 function OrcaPredator({ agent }: { agent: AgentState }) {
   const { scene, animations } = useGLTF("/models/orca.glb");
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { actions, names } = useManagedAnimations(animations, cloned);
+  const { actions, names } = useAnimations(animations, cloned);
 
   useEffect(() => {
     const first = names[0];
@@ -164,7 +99,7 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
   const scale = chasing ? ORCA_BASE_SCALE * 1.1 : ORCA_BASE_SCALE;
 
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent} yawOffset={ORCA_YAW_OFFSET}>
       <primitive object={cloned} scale={scale} />
     </TurnTowardVelocity>
   );
@@ -176,7 +111,7 @@ const SCOUT_BASE_SCALE = 4;
 function ScoutMesh({ agent }: { agent: AgentState }) {
   const { scene, animations } = useGLTF("/models/scout.glb");
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { actions, names } = useManagedAnimations(animations, cloned);
+  const { actions, names } = useAnimations(animations, cloned);
 
   useEffect(() => {
     const first = names[0];
@@ -190,7 +125,7 @@ function ScoutMesh({ agent }: { agent: AgentState }) {
   }, [actions, names]);
 
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent} yawOffset={SCOUT_YAW_OFFSET}>
       <primitive object={cloned} scale={SCOUT_BASE_SCALE} />
     </TurnTowardVelocity>
   );
@@ -206,7 +141,7 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
   const modelPath = isManual ? "/models/collector_manual.glb" : "/models/collector.glb";
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { actions, names } = useManagedAnimations(animations, cloned);
+  const { actions, names } = useAnimations(animations, cloned);
 
   useEffect(() => {
     const first = names[0];
@@ -226,7 +161,7 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
     ? [String(agent.metadata.carrying_trash_id)]
     : [];
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent} yawOffset={COLLECTOR_YAW_OFFSET}>
       <primitive object={cloned} scale={COLLECTOR_BASE_SCALE} position={[0, COLLECTOR_Y_OFFSET, 0]} />
       {carrying &&
         carriedTrashIds.map((id, index) => (
@@ -245,11 +180,7 @@ function FishMesh({ agent }: { agent: AgentState }) {
   const modelPath = FISH_MODEL_BY_SPECIES[speciesId] ?? FISH_MODEL_BY_SPECIES[0];
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
-  const { actions, names } = useManagedAnimations(
-    animations,
-    cloned,
-    FISH_ANIMATION_UPDATE_INTERVAL,
-  );
+  const { actions, names } = useAnimations(animations, cloned);
 
   useEffect(() => {
     const first = names[0];
@@ -265,7 +196,7 @@ function FishMesh({ agent }: { agent: AgentState }) {
   const scale = (agent.alive ? 1 : 0.4) * FISH_BASE_SCALE;
 
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent} yawOffset={FISH_YAW_OFFSET}>
       <group scale={scale}>
       <primitive object={cloned} />
       </group>
@@ -281,82 +212,22 @@ function hashAgentId(id: string): number {
   return h >>> 0;
 }
 
-function findFirstMesh(root: THREE.Object3D): THREE.Mesh | null {
-  let mesh: THREE.Mesh | null = null;
-  root.traverse((child) => {
-    if (!mesh && (child as THREE.Mesh).isMesh) {
-      mesh = child as THREE.Mesh;
-    }
-  });
-  return mesh;
-}
-
-function isCanTrash(id: string): boolean {
-  return (hashAgentId(id) & 1) === 0;
-}
-
-function trashRotationY(id: string): number {
-  const h = hashAgentId(id);
-  return (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
-}
-
-function TrashInstances({
-  canTrashAgents,
-  bottleTrashAgents,
-  discoveredTrashAgents,
-  cx,
-  cz,
-  canRef,
-  bottleRef,
-}: {
-  canTrashAgents: AgentState[];
-  bottleTrashAgents: AgentState[];
-  discoveredTrashAgents: AgentState[];
-  cx: number;
-  cz: number;
-  canRef: RefObject<THREE.InstancedMesh | null>;
-  bottleRef: RefObject<THREE.InstancedMesh | null>;
-}) {
+function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
   const canGltf = useGLTF("/models/can.glb");
   const bottleGltf = useGLTF("/models/plastic_bottle.glb");
-  const canMesh = useMemo(() => findFirstMesh(canGltf.scene), [canGltf.scene]);
-  const bottleMesh = useMemo(() => findFirstMesh(bottleGltf.scene), [bottleGltf.scene]);
-
-  useEffect(() => {
-    if (canRef.current) canRef.current.count = canTrashAgents.length;
-    if (bottleRef.current) bottleRef.current.count = bottleTrashAgents.length;
-  }, [bottleRef, bottleTrashAgents.length, canRef, canTrashAgents.length]);
+  const h = hashAgentId(id);
+  const useCan = (h & 1) === 0;
+  const sourceScene = useCan ? canGltf.scene : bottleGltf.scene;
+  const scale = useCan ? CAN_SCALE : BOTTLE_SCALE;
+  const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
+  const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
 
   return (
-    <>
-      {canMesh && (
-        <instancedMesh
-          ref={canRef}
-          args={[
-            canMesh.geometry,
-            canMesh.material as THREE.Material,
-            Math.max(canTrashAgents.length, 1),
-          ]}
-          count={canTrashAgents.length}
-          frustumCulled={false}
-        />
-      )}
-      {bottleMesh && (
-        <instancedMesh
-          ref={bottleRef}
-          args={[
-            bottleMesh.geometry,
-            bottleMesh.material as THREE.Material,
-            Math.max(bottleTrashAgents.length, 1),
-          ]}
-          count={bottleTrashAgents.length}
-          frustumCulled={false}
-        />
-      )}
-      {discoveredTrashAgents.map((agent) => (
+    <group>
+      <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
+      {discovered && (
         <mesh
-          key={`ring-${agent.id}`}
-          position={[agent.x - cx, 1, agent.y - cz]}
+          position={[0, -7, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           renderOrder={1}
         >
@@ -369,8 +240,8 @@ function TrashInstances({
             depthTest={false}
           />
         </mesh>
-      ))}
-    </>
+      )}
+    </group>
   );
 }
 
@@ -421,29 +292,41 @@ function AgentNode({
   agent,
   cx,
   cz,
-  registerAgentGroup,
+  discovered,
 }: {
   agent: AgentState;
   cx: number;
   cz: number;
-  registerAgentGroup: (id: string, group: THREE.Group | null) => void;
+  discovered: boolean;
 }) {
+  const ref = useRef<THREE.Group>(null);
   const wx = agent.x - cx;
   const wz = agent.y - cz;
   const y = agent.agent_type === "predator" ? 14 : 8;
-  const initialPositionRef = useRef<[number, number, number]>([wx, y, wz]);
-  const setGroupRef = useCallback(
-    (group: THREE.Group | null) => {
-      if (group) {
-        group.position.set(...initialPositionRef.current);
-      }
-      registerAgentGroup(agent.id, group);
-    },
-    [agent.id, registerAgentGroup],
+  const initialPosition = useMemo<[number, number, number]>(
+    () => [wx, y, wz],
+    []
   );
 
+  useFrame((_, delta) => {
+    const group = ref.current;
+    if (!group) return;
+    const dx = wx - group.position.x;
+    const dy = y - group.position.y;
+    const dz = wz - group.position.z;
+    const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
+    if (dx * dx + dy * dy + dz * dz > snapDistanceSq) {
+      group.position.set(wx, y, wz);
+      return;
+    }
+    const alpha = 1 - Math.exp(-POSITION_FOLLOW_RATE * delta);
+    group.position.x += dx * alpha;
+    group.position.y += dy * alpha;
+    group.position.z += dz * alpha;
+  });
+
   return (
-    <group ref={setGroupRef} position={initialPositionRef.current}>
+    <group ref={ref} position={initialPosition}>
       {agent.agent_type === "predator" && (
         <ModelErrorBoundary fallback={<PredatorFallback agent={agent} />}>
           <OrcaPredator agent={agent} />
@@ -464,162 +347,18 @@ function AgentNode({
           <FishMesh agent={agent} />
         </ModelErrorBoundary>
       )}
+      {agent.agent_type === "trash" && (
+        <ModelErrorBoundary fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
+          <TrashMesh id={agent.id} discovered={discovered} />
+        </ModelErrorBoundary>
+      )}
     </group>
-  );
-}
-
-function yawOffsetForAgent(agent: AgentState): number {
-  if (agent.agent_type === "predator") return ORCA_YAW_OFFSET;
-  if (agent.agent_type === "scout") return SCOUT_YAW_OFFSET;
-  if (agent.agent_type === "collector") return COLLECTOR_YAW_OFFSET;
-  if (agent.agent_type === "marine_life") return FISH_YAW_OFFSET;
-  return 0;
-}
-
-function AgentsLayer({
-  agents,
-  discoveredSet,
-  cx,
-  cz,
-}: {
-  agents: AgentState[];
-  discoveredSet: Set<string>;
-  cx: number;
-  cz: number;
-}) {
-  const agentGroupsRef = useRef(new Map<string, THREE.Group>());
-  const canTrashRef = useRef<THREE.InstancedMesh | null>(null);
-  const bottleTrashRef = useRef<THREE.InstancedMesh | null>(null);
-  const matrix = useMemo(() => new THREE.Matrix4(), []);
-  const position = useMemo(() => new THREE.Vector3(), []);
-  const quaternion = useMemo(() => new THREE.Quaternion(), []);
-  const euler = useMemo(() => new THREE.Euler(), []);
-  const scale = useMemo(() => new THREE.Vector3(), []);
-
-  const registerAgentGroup = useCallback((id: string, group: THREE.Group | null) => {
-    if (group) {
-      agentGroupsRef.current.set(id, group);
-    } else {
-      agentGroupsRef.current.delete(id);
-    }
-  }, []);
-
-  const visibleAgents = useMemo(
-    () => agents.filter((agent) => agent.agent_type !== "trash"),
-    [agents],
-  );
-  const trashAgents = useMemo(
-    () => agents.filter((agent) => agent.agent_type === "trash"),
-    [agents],
-  );
-  const canTrashAgents = useMemo(
-    () => trashAgents.filter((agent) => isCanTrash(agent.id)),
-    [trashAgents],
-  );
-  const bottleTrashAgents = useMemo(
-    () => trashAgents.filter((agent) => !isCanTrash(agent.id)),
-    [trashAgents],
-  );
-  const discoveredTrashAgents = useMemo(
-    () => trashAgents.filter((agent) => discoveredSet.has(agent.id)),
-    [discoveredSet, trashAgents],
-  );
-
-  useFrame((_, delta) => {
-    const alpha = 1 - Math.exp(-POSITION_FOLLOW_RATE * delta);
-    const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
-
-    for (const agent of visibleAgents) {
-      const group = agentGroupsRef.current.get(agent.id);
-      if (!group) continue;
-
-      const wx = agent.x - cx;
-      const wz = agent.y - cz;
-      const y = agent.agent_type === "predator" ? 14 : 8;
-      const dx = wx - group.position.x;
-      const dy = y - group.position.y;
-      const dz = wz - group.position.z;
-
-      if (dx * dx + dy * dy + dz * dz > snapDistanceSq) {
-        group.position.set(wx, y, wz);
-      } else {
-        group.position.x += dx * alpha;
-        group.position.y += dy * alpha;
-        group.position.z += dz * alpha;
-      }
-
-      const { vx, vy } = agent;
-      if (vx * vx + vy * vy > 1e-3) {
-        const target = Math.atan2(vx, vy) + yawOffsetForAgent(agent);
-        let diff = target - group.rotation.y;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        group.rotation.y += diff * 0.2;
-      }
-    }
-
-    updateTrashInstances(canTrashRef.current, canTrashAgents, CAN_SCALE);
-    updateTrashInstances(bottleTrashRef.current, bottleTrashAgents, BOTTLE_SCALE);
-  });
-
-  function updateTrashInstances(
-    mesh: THREE.InstancedMesh | null,
-    list: AgentState[],
-    scalar: number,
-  ) {
-    if (!mesh) return;
-    mesh.count = list.length;
-    scale.setScalar(scalar);
-    for (let index = 0; index < list.length; index++) {
-      const agent = list[index];
-      position.set(agent.x - cx, 8, agent.y - cz);
-      euler.set(0, trashRotationY(agent.id), 0);
-      quaternion.setFromEuler(euler);
-      matrix.compose(position, quaternion, scale);
-      mesh.setMatrixAt(index, matrix);
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-  }
-
-  return (
-    <>
-      {visibleAgents.map((agent) => (
-        <AgentNode
-          key={agent.id}
-          agent={agent}
-          cx={cx}
-          cz={cz}
-          registerAgentGroup={registerAgentGroup}
-        />
-      ))}
-      <ModelErrorBoundary
-        fallback={
-          <>
-            {trashAgents.map((agent) => (
-              <group key={agent.id} position={[agent.x - cx, 8, agent.y - cz]}>
-                <TrashFallback id={agent.id} discovered={discoveredSet.has(agent.id)} />
-              </group>
-            ))}
-          </>
-        }
-      >
-        <TrashInstances
-          canTrashAgents={canTrashAgents}
-          bottleTrashAgents={bottleTrashAgents}
-          discoveredTrashAgents={discoveredTrashAgents}
-          cx={cx}
-          cz={cz}
-          canRef={canTrashRef}
-          bottleRef={bottleTrashRef}
-        />
-      </ModelErrorBoundary>
-    </>
   );
 }
 
 function ScoutFallback({ agent }: { agent: AgentState }) {
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent}>
       <mesh>
         <coneGeometry args={[5, 14, 4]} />
         <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.4} />
@@ -631,7 +370,7 @@ function ScoutFallback({ agent }: { agent: AgentState }) {
 function PredatorFallback({ agent }: { agent: AgentState }) {
   const chasing = agent.metadata?.mode === "chase";
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent} yawOffset={Math.PI}>
       <mesh scale={chasing ? 1.15 : 1}>
         <coneGeometry args={[11, 34, 5]} />
         <meshStandardMaterial color={chasing ? "#991b1b" : "#334155"} roughness={0.65} />
@@ -649,7 +388,7 @@ function CollectorFallback({ agent }: { agent: AgentState }) {
       ? 1
       : 0;
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent}>
       <mesh>
         <boxGeometry args={[20, 8, 12]} />
         <meshStandardMaterial color="#34d399" emissive="#047857" emissiveIntensity={0.25} />
@@ -669,7 +408,7 @@ function FishFallback({ agent }: { agent: AgentState }) {
   const colors = ["#7dd3fc", "#86efac", "#fca5a5"];
   const color = colors[speciesId] ?? colors[0];
   return (
-    <TurnTowardVelocity>
+    <TurnTowardVelocity agent={agent}>
       <group scale={agent.alive ? 1.5 : 0.6}>
         <mesh rotation={[0, Math.PI / 2, 0]}>
           <sphereGeometry args={[6, 12, 8]} />
@@ -833,60 +572,61 @@ export default function Canvas3D({
         camera={{ position: [0, defaultDist * 0.85, defaultDist * 0.7], fov: 45, near: 1, far: sceneSize * 20 }}
         dpr={[1, 1.5]}
       >
-        <AnimationMixerRegistry>
-          <CameraPresetController
-            preset={cameraPreset}
-            width={width}
-            height={height}
-            margin={margin}
+        <CameraPresetController
+          preset={cameraPreset}
+          width={width}
+          height={height}
+          margin={margin}
+        />
+        <Suspense fallback={<color attach="background" args={["#0c4a72"]} />}>
+          <SceneBackground />
+        </Suspense>
+        <ambientLight intensity={1.1} />
+        <hemisphereLight args={["#bae6fd", "#0c2740", 0.8]} />
+        <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
+        <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
+
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+          <planeGeometry args={[width, height]} />
+          <meshStandardMaterial
+            color="#1a5e8a"
+            metalness={0.15}
+            roughness={0.7}
+            transparent
+            opacity={0.35}
           />
-          <Suspense fallback={<color attach="background" args={["#0c4a72"]} />}>
-            <SceneBackground />
-          </Suspense>
-          <ambientLight intensity={1.1} />
-          <hemisphereLight args={["#bae6fd", "#0c2740", 0.8]} />
-          <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
-          <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
+        </mesh>
 
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-            <planeGeometry args={[width, height]} />
-            <meshStandardMaterial
-              color="#1a5e8a"
-              metalness={0.15}
-              roughness={0.7}
-              transparent
-              opacity={0.35}
-            />
-          </mesh>
+        <FieldGrid width={width} height={height} divisions={20} />
 
-          <FieldGrid width={width} height={height} divisions={20} />
+        {base && (
+          <group position={[base.x - cx, 0, base.y - cz]}>
+            <mesh position={[0, 8, 0]}>
+              <boxGeometry args={[140, 16, 30]} />
+              <meshStandardMaterial color="#d4a373" />
+            </mesh>
+            <mesh position={[0, 28, 0]}>
+              <boxGeometry args={[56, 24, 24]} />
+              <meshStandardMaterial color="#f1f5f9" />
+            </mesh>
+            <mesh position={[0, 0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[base.radius - 2, base.radius, 64]} />
+              <meshBasicMaterial color="#5eead4" transparent opacity={0.55} />
+            </mesh>
+          </group>
+        )}
 
-          {base && (
-            <group position={[base.x - cx, 0, base.y - cz]}>
-              <mesh position={[0, 8, 0]}>
-                <boxGeometry args={[140, 16, 30]} />
-                <meshStandardMaterial color="#d4a373" />
-              </mesh>
-              <mesh position={[0, 28, 0]}>
-                <boxGeometry args={[56, 24, 24]} />
-                <meshStandardMaterial color="#f1f5f9" />
-              </mesh>
-              <mesh position={[0, 0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[base.radius - 2, base.radius, 64]} />
-                <meshBasicMaterial color="#5eead4" transparent opacity={0.55} />
-              </mesh>
-            </group>
-          )}
-
-          <Suspense fallback={null}>
-            <AgentsLayer
-              agents={agents}
-              discoveredSet={discoveredSet}
+        <Suspense fallback={null}>
+          {agents.map((a) => (
+            <AgentNode
+              key={a.id}
+              agent={a}
               cx={cx}
               cz={cz}
+              discovered={a.agent_type === "trash" && discoveredSet.has(a.id)}
             />
-          </Suspense>
-        </AnimationMixerRegistry>
+          ))}
+        </Suspense>
 
       </ThreeCanvas>
     </div>
