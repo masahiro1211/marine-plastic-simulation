@@ -115,25 +115,37 @@ function useManagedAnimations(
   updateInterval = FULL_RATE_ANIMATION_UPDATE_INTERVAL,
 ) {
   const registry = useContext(AnimationRegistryContext);
+  // useGLTF が返す animations は同じ glb 上で共有されるので、別 mixer から
+  // 同じ clip を clipAction() すると内部キャッシュが汚染され、片方が
+  // uncacheRoot した瞬間にもう片方の clipAction が _cacheIndex undefined
+  // で例外を投げる（StrictMode の二重 effect でレースが顕在化する）。
+  // clip 自体をインスタンスごとに clone して隔離する。
+  const localClips = useMemo(
+    () => animations.map((clip) => clip.clone()),
+    [animations],
+  );
   const mixer = useMemo(() => new THREE.AnimationMixer(root), [root]);
-  const names = useMemo(() => animations.map((clip) => clip.name), [animations]);
+  const names = useMemo(() => localClips.map((clip) => clip.name), [localClips]);
   const actions = useMemo(() => {
     return Object.fromEntries(
-      animations.map((clip) => [clip.name, mixer.clipAction(clip, root)]),
+      localClips.map((clip) => [clip.name, mixer.clipAction(clip, root)]),
     ) as Record<string, THREE.AnimationAction>;
-  }, [animations, mixer, root]);
+  }, [localClips, mixer, root]);
 
   useEffect(() => {
-    if (!registry || animations.length === 0) return;
+    if (!registry || localClips.length === 0) return;
     return registry.register(mixer, updateInterval);
-  }, [animations.length, mixer, registry, updateInterval]);
+  }, [localClips.length, mixer, registry, updateInterval]);
 
   useEffect(() => {
     return () => {
+      // mixer.uncacheRoot(root) は呼ばない。呼ぶと mixer 内部の _actions が
+      // 壊れて、StrictMode の二重 effect で同じ memoized action を再利用した
+      // ときに _cacheIndex undefined エラーになる。mixer 自体が unmount で GC
+      // 対象になるので、cache を強制的に剥がす必要はない。
       mixer.stopAllAction();
-      mixer.uncacheRoot(root);
     };
-  }, [mixer, root]);
+  }, [mixer]);
 
   return { actions, names };
 }
