@@ -297,7 +297,7 @@ function trashRotationY(id: string): number {
   return (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
 }
 
-function TrashMesh({ agent }: { agent: AgentState }) {
+function TrashMesh({ agent, discovered }: { agent: AgentState; discovered: boolean }) {
   const useCan = isCanTrash(agent.id);
   const modelPath = useCan ? "/models/can.glb" : "/models/plastic_bottle.glb";
   const { scene } = useGLTF(modelPath);
@@ -308,6 +308,18 @@ function TrashMesh({ agent }: { agent: AgentState }) {
   return (
     <TurnTowardVelocity>
       <primitive object={cloned} rotation={[0, rotationY, 0]} scale={scale} />
+      {discovered && (
+        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+          <ringGeometry args={[140, 180, 48]} />
+          <meshBasicMaterial
+            color="#ef4444"
+            transparent
+            opacity={0.9}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
+        </mesh>
+      )}
     </TurnTowardVelocity>
   );
 }
@@ -427,7 +439,7 @@ function AgentNode({
           fallback={<TrashFallback id={agent.id} discovered={discovered} />}
         >
           <Suspense fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
-            <TrashMesh agent={agent} />
+            <TrashMesh agent={agent} discovered={discovered} />
           </Suspense>
         </ModelErrorBoundary>
       )}
