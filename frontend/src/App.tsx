@@ -22,6 +22,18 @@ const MOVEMENT_KEYS = new Set([
 const GAMEPAD_AXIS_DEADZONE = 0.18;
 const GAMEPAD_DIRECTION_REPEAT_MS = 150;
 
+function getActiveGamepad(): Gamepad | null {
+  const pads = navigator.getGamepads?.();
+  if (!pads) return null;
+
+  const livePads = Array.from(pads).filter(
+    (pad): pad is Gamepad => pad !== null,
+  );
+  if (livePads.length === 0) return null;
+
+  return livePads.find((pad) => pad.connected) ?? livePads[0];
+}
+
 /**
  * Render the main simulation dashboard. Center Canvas, agent logic, and
  * keyboard handling are intentionally unchanged from the previous version;
@@ -60,6 +72,7 @@ export default function App() {
     vertical: 0,
     horizontal: 0,
   });
+  const gamepadIdRef = useRef<string | null>(null);
   const gamepadLastMoveRef = useRef({ dx: 0, dy: 0 });
   const [gamepadPanelMode, setGamepadPanelMode] = useState(false);
   const gamepadPanelModeRef = useRef(false);
@@ -181,7 +194,18 @@ export default function App() {
     };
 
     const pollGamepad = () => {
-      const gamepad = navigator.getGamepads?.().find((pad) => pad !== null);
+      const gamepad = getActiveGamepad();
+      if (gamepad?.id !== gamepadIdRef.current) {
+        gamepadIdRef.current = gamepad?.id ?? null;
+        gamepadButtonsRef.current = { a: false, b: false };
+        gamepadRepeatRef.current = {
+          lastVerticalAt: 0,
+          lastHorizontalAt: 0,
+          vertical: 0,
+          horizontal: 0,
+        };
+        gamepadLastMoveRef.current = { dx: 0, dy: 0 };
+      }
       if (gamepad) {
         const aPressed = Boolean(gamepad.buttons[0]?.pressed);
         const bPressed = Boolean(gamepad.buttons[1]?.pressed);
