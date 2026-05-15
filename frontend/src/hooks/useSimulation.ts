@@ -72,6 +72,41 @@ function stringArrayEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function metadataValueEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+  }
+  return false;
+}
+
+function metadataEqual(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => metadataValueEqual(left[key], right[key]));
+}
+
+function agentStateEqual(left: AgentState, right: AgentState): boolean {
+  return (
+    left.id === right.id &&
+    left.agent_type === right.agent_type &&
+    left.role === right.role &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.vx === right.vx &&
+    left.vy === right.vy &&
+    left.alive === right.alive &&
+    left.status === right.status &&
+    left.energy === right.energy &&
+    left.target_id === right.target_id &&
+    metadataEqual(left.metadata, right.metadata)
+  );
+}
+
 interface SimulationState {
   agents: AgentState[];
   stats: SimulationStats;
@@ -117,7 +152,15 @@ export default function useSimulation(): SimulationState {
    * @param data Snapshot payload received from REST or WebSocket.
    */
   const applySnapshot = useCallback((data: Partial<SimulationSnapshot>) => {
-    setAgents(data.agents ?? []);
+    setAgents((current) => {
+      const next = data.agents ?? [];
+      if (current === next) return current;
+      if (current.length !== next.length) return next;
+      for (let i = 0; i < next.length; i++) {
+        if (!agentStateEqual(current[i], next[i])) return next;
+      }
+      return current;
+    });
     setStats(data.stats ?? DEFAULT_STATS);
     setScore(data.score ?? DEFAULT_SCORE);
     setTick(data.tick ?? 0);

@@ -40,16 +40,32 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
 };
 
 useGLTF.setDecoderPath("/draco/");
-useGLTF.preload("/models/orca.glb");
-for (const modelPath of COLLECTOR_MODEL_PATHS) {
+
+const ESSENTIAL_MODELS = [
+  "/models/orca.glb",
+  "/models/scout.glb",
+  "/models/fish.glb",
+  "/models/can.glb",
+  "/models/plastic_bottle.glb",
+  "/models/collector.glb",
+] as const;
+for (const modelPath of ESSENTIAL_MODELS) {
   useGLTF.preload(modelPath);
 }
-for (const modelPath of Object.values(FISH_MODEL_BY_SPECIES)) {
-  useGLTF.preload(modelPath);
+
+const DEFERRED_MODELS = [
+  ...COLLECTOR_MODEL_PATHS.filter((path) => path !== "/models/collector.glb"),
+  "/models/fish_2.glb",
+  "/models/fish_3.glb",
+] as const;
+if (typeof window !== "undefined") {
+  const idle =
+    (window as unknown as { requestIdleCallback?: (callback: () => void) => void })
+      .requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 1500));
+  idle(() => {
+    for (const modelPath of DEFERRED_MODELS) useGLTF.preload(modelPath);
+  });
 }
-useGLTF.preload("/models/scout.glb");
-useGLTF.preload("/models/can.glb");
-useGLTF.preload("/models/plastic_bottle.glb");
 
 // Trash GLBs are already authored close to scene scale; keep these small so
 // the full models stay visually comparable to the other agents.
@@ -671,10 +687,13 @@ function FieldGrid({
 }
 
 function SceneBackground() {
-  const texture = useTexture("/assets/images/underwater-background.png");
+  const texture = useTexture("/assets/images/underwater-background.webp");
   const { scene } = useThree();
   useMemo(() => {
     texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    texture.anisotropy = 1;
     texture.needsUpdate = true;
   }, [texture]);
   useEffect(() => {
@@ -758,6 +777,11 @@ export default function Canvas3D({
       <ThreeCanvas
         camera={{ position: [0, defaultDist * 0.85, defaultDist * 0.7], fov: 45, near: 1, far: sceneSize * 20 }}
         dpr={[1, 1.25]}
+        shadows={false}
+        gl={{ antialias: false, powerPreference: "high-performance", alpha: false, stencil: false, depth: true }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.NoToneMapping;
+        }}
       >
         <AnimationMixerRegistry>
           <CameraPresetController
@@ -774,7 +798,7 @@ export default function Canvas3D({
           <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
           <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
 
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
             <planeGeometry args={[width, height]} />
             <meshStandardMaterial
               color="#1a5e8a"
