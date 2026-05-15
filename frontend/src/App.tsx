@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Canvas from "./components/Canvas";
 import type { CameraPreset } from "./components/Canvas3D";
 import ControlPanel, { GAMEPAD_CONTROL_COUNT } from "./components/ControlPanel";
 import StatsPanel from "./components/StatsPanel";
 import useSimulation from "./hooks/useSimulation";
 import type { SimulationConfig } from "./types";
 
+const Canvas = lazy(() => import("./components/Canvas"));
 const Canvas3D = lazy(() => import("./components/Canvas3D"));
 
 const MOVEMENT_KEYS = new Set([
@@ -407,12 +407,14 @@ export default function App() {
                 />
               </Suspense>
             ) : (
-              <Canvas
-                agents={agents}
-                base={base}
-                width={config.width}
-                height={config.height}
-              />
+              <Suspense fallback={<CanvasLoading width={config.width} height={config.height} />}>
+                <Canvas
+                  agents={agents}
+                  base={base}
+                  width={config.width}
+                  height={config.height}
+                />
+              </Suspense>
             )}
           </div>
           <StatsPanel
