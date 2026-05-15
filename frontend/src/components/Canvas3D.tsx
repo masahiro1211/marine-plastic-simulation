@@ -9,17 +9,7 @@ export type CameraPreset = "angle" | "top";
 
 useGLTF.preload("/models/orca.glb");
 useGLTF.preload("/models/collector.glb");
-useGLTF.preload("/models/collector_with_can.glb");
-useGLTF.preload("/models/collector_with_bottle.glb");
-useGLTF.preload("/models/collector_with_2cans.glb");
-useGLTF.preload("/models/collector_with_2bottles.glb");
-useGLTF.preload("/models/collector_with_both.glb");
 useGLTF.preload("/models/collector_manual.glb");
-useGLTF.preload("/models/collector_manual_with_can.glb");
-useGLTF.preload("/models/collector_manual_with_bottle.glb");
-useGLTF.preload("/models/collector_manual_with_2cans.glb");
-useGLTF.preload("/models/collector_manual_with_2bottles.glb");
-useGLTF.preload("/models/collector_manual_with_both.glb");
 useGLTF.preload("/models/fish.glb");
 useGLTF.preload("/models/fish_2.glb");
 useGLTF.preload("/models/fish_3.glb");
@@ -34,9 +24,11 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
 };
 
 // Trash GLBs are already authored close to scene scale; keep these small so
-// trash stays visually comparable to the other agents.
+// instanced trash stays visually comparable to the other agents.
 const CAN_SCALE = 18;
 const BOTTLE_SCALE = 18;
+const CARRIED_CAN_SCALE = 14;
+const CARRIED_BOTTLE_SCALE = 10;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -146,36 +138,9 @@ const COLLECTOR_YAW_OFFSET = 0;
 const COLLECTOR_BASE_SCALE = 9;
 const COLLECTOR_Y_OFFSET = 0;
 
-function isCanTrash(id: string): boolean {
-  return (hashAgentId(id) & 1) === 0;
-}
-
-function collectorModelPath(isManual: boolean, carriedIds: string[]): string {
-  const prefix = isManual ? "collector_manual" : "collector";
-  if (carriedIds.length === 0) return `/models/${prefix}.glb`;
-  const cans = carriedIds.filter(isCanTrash).length;
-  const bottles = carriedIds.length - cans;
-  if (carriedIds.length === 1) {
-    return cans === 1
-      ? `/models/${prefix}_with_can.glb`
-      : `/models/${prefix}_with_bottle.glb`;
-  }
-  if (cans >= 2) return `/models/${prefix}_with_2cans.glb`;
-  if (bottles >= 2) return `/models/${prefix}_with_2bottles.glb`;
-  return `/models/${prefix}_with_both.glb`;
-}
-
 function CollectorMesh({ agent }: { agent: AgentState }) {
   const isManual = Boolean(agent.metadata?.is_manual);
-  const carriedTrashIds = useMemo(() => {
-    const ids = agent.metadata?.carrying_trash_ids;
-    if (Array.isArray(ids)) return (ids as unknown[]).map(String);
-    if (agent.metadata?.carrying_trash_id) {
-      return [String(agent.metadata.carrying_trash_id)];
-    }
-    return [];
-  }, [agent.metadata?.carrying_trash_ids, agent.metadata?.carrying_trash_id]);
-  const modelPath = collectorModelPath(isManual, carriedTrashIds);
+  const modelPath = isManual ? "/models/collector_manual.glb" : "/models/collector.glb";
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { actions, names } = useAnimations(animations, cloned);
@@ -191,9 +156,19 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
     };
   }, [actions, names]);
 
+  const carrying = Boolean(agent.metadata?.carrying);
+  const carriedTrashIds = Array.isArray(agent.metadata?.carrying_trash_ids)
+    ? (agent.metadata.carrying_trash_ids as unknown[]).map(String)
+    : agent.metadata?.carrying_trash_id
+    ? [String(agent.metadata.carrying_trash_id)]
+    : [];
   return (
     <TurnTowardVelocity agent={agent} yawOffset={COLLECTOR_YAW_OFFSET}>
       <primitive object={cloned} scale={COLLECTOR_BASE_SCALE} position={[0, COLLECTOR_Y_OFFSET, 0]} />
+      {carrying &&
+        carriedTrashIds.map((id, index) => (
+          <CarriedTrashMesh key={id} id={id} index={index} />
+        ))}
     </TurnTowardVelocity>
   );
 }
@@ -268,6 +243,24 @@ function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
           />
         </mesh>
       )}
+    </group>
+  );
+}
+
+function CarriedTrashMesh({ id, index }: { id: string; index: number }) {
+  const canGltf = useGLTF("/models/can.glb");
+  const bottleGltf = useGLTF("/models/plastic_bottle.glb");
+  const h = hashAgentId(id);
+  const useCan = (h & 1) === 0;
+  const sourceScene = useCan ? canGltf.scene : bottleGltf.scene;
+  const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
+  const scale = useCan ? CARRIED_CAN_SCALE : CARRIED_BOTTLE_SCALE;
+  const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
+  const sideOffset = index === 0 ? -5 : 7;
+
+  return (
+    <group position={[24, 11, sideOffset]} rotation={[0.25, rotationY, -0.12]}>
+      <primitive object={cloned} scale={scale} />
     </group>
   );
 }
