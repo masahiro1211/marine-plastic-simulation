@@ -155,12 +155,18 @@ function CollectorMesh({ agent }: { agent: AgentState }) {
   }, [actions, names]);
 
   const carrying = Boolean(agent.metadata?.carrying);
+  const carriedTrashIds = Array.isArray(agent.metadata?.carrying_trash_ids)
+    ? (agent.metadata.carrying_trash_ids as unknown[]).map(String)
+    : agent.metadata?.carrying_trash_id
+    ? [String(agent.metadata.carrying_trash_id)]
+    : [];
   return (
     <TurnTowardVelocity agent={agent} yawOffset={COLLECTOR_YAW_OFFSET}>
       <primitive object={cloned} scale={COLLECTOR_BASE_SCALE} position={[0, COLLECTOR_Y_OFFSET, 0]} />
-      {carrying && (
-        <CarriedTrashMesh id={String(agent.metadata?.carrying_trash_id ?? agent.id)} />
-      )}
+      {carrying &&
+        carriedTrashIds.map((id, index) => (
+          <CarriedTrashMesh key={id} id={id} index={index} />
+        ))}
     </TurnTowardVelocity>
   );
 }
@@ -239,7 +245,7 @@ function TrashMesh({ id, discovered }: { id: string; discovered: boolean }) {
   );
 }
 
-function CarriedTrashMesh({ id }: { id: string }) {
+function CarriedTrashMesh({ id, index }: { id: string; index: number }) {
   const canGltf = useGLTF("/models/can.glb");
   const bottleGltf = useGLTF("/models/plastic_bottle.glb");
   const h = hashAgentId(id);
@@ -248,9 +254,10 @@ function CarriedTrashMesh({ id }: { id: string }) {
   const cloned = useMemo(() => SkeletonUtils.clone(sourceScene), [sourceScene]);
   const scale = useCan ? CARRIED_CAN_SCALE : CARRIED_BOTTLE_SCALE;
   const rotationY = (((h >>> 1) & 0xffff) / 0xffff) * Math.PI * 2;
+  const sideOffset = index === 0 ? -5 : 7;
 
   return (
-    <group position={[0, 17, 0]} rotation={[0.25, rotationY, -0.12]}>
+    <group position={[24, 11, sideOffset]} rotation={[0.25, rotationY, -0.12]}>
       <primitive object={cloned} scale={scale} />
     </group>
   );
@@ -374,18 +381,24 @@ function PredatorFallback({ agent }: { agent: AgentState }) {
 
 function CollectorFallback({ agent }: { agent: AgentState }) {
   const carrying = Boolean(agent.metadata?.carrying);
+  const carryingCount =
+    typeof agent.metadata?.carrying_count === "number"
+      ? Math.max(1, agent.metadata.carrying_count)
+      : carrying
+      ? 1
+      : 0;
   return (
     <TurnTowardVelocity agent={agent}>
       <mesh>
         <boxGeometry args={[20, 8, 12]} />
         <meshStandardMaterial color="#34d399" emissive="#047857" emissiveIntensity={0.25} />
       </mesh>
-      {carrying && (
-        <mesh position={[0, 10, 0]} rotation={[0.3, Math.PI / 5, -0.2]}>
-          <boxGeometry args={[10, 4, 5]} />
+      {Array.from({ length: carryingCount }).map((_, index) => (
+        <mesh key={index} position={[16, 7, index === 0 ? -4 : 4]} rotation={[0.3, Math.PI / 5, -0.2]}>
+          <boxGeometry args={[8, 4, 5]} />
           <meshStandardMaterial color="#f97316" roughness={0.85} metalness={0.08} />
         </mesh>
-      )}
+      ))}
     </TurnTowardVelocity>
   );
 }

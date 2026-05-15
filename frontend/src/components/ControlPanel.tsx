@@ -103,7 +103,7 @@ export default function ControlPanel({
     } else if (selectedIndex === 1) {
       handleNumber("collector_count", clampNumber(config.collector_count + direction, 1, 6));
     } else if (selectedIndex === 2) {
-      handleNumber("steps", clampNumber(config.steps + direction * 50, 200, 2000));
+      handleNumber("steps", clampNumber(config.steps + direction * 50, 200, 6000));
     } else if (selectedIndex === 3) {
       handleToggle("enable_manual_robot", !config.enable_manual_robot);
     }
@@ -160,7 +160,7 @@ export default function ControlPanel({
           label="⏱  ステップ数"
           value={config.steps}
           min={200}
-          max={2000}
+          max={6000}
           step={50}
           unit="t"
           className={focusClass(2)}

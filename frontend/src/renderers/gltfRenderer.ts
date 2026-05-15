@@ -113,21 +113,25 @@ function applyClipTransform(
   }
 }
 
-function drawCollectorCarryIndicator(ctx: CanvasRenderingContext2D) {
+function drawCollectorCarryIndicator(ctx: CanvasRenderingContext2D, carryingCount: number) {
   ctx.save();
   ctx.fillStyle = "#fbbf24";
   ctx.strokeStyle = "#92400e";
   ctx.lineWidth = 1.5;
 
-  ctx.beginPath();
-  ctx.arc(-3, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  for (let i = 0; i < carryingCount; i++) {
+    const y = (i - (carryingCount - 1) / 2) * 7;
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath();
+    ctx.arc(13, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
 
-  ctx.fillStyle = "#fef3c7";
-  ctx.beginPath();
-  ctx.arc(-4.2, -1.4, 1.2, 0, Math.PI * 2);
-  ctx.fill();
+    ctx.fillStyle = "#fef3c7";
+    ctx.beginPath();
+    ctx.arc(11.8, y - 1.4, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -147,7 +151,11 @@ export function drawGltfAgent(
     drawPrimitive(ctx, primitive, getRuntimeFill(agent, primitive));
   }
   if (agent.agent_type === "collector" && agent.metadata.carrying) {
-    drawCollectorCarryIndicator(ctx);
+    const carryingCount =
+      typeof agent.metadata.carrying_count === "number"
+        ? Math.max(1, agent.metadata.carrying_count)
+        : 1;
+    drawCollectorCarryIndicator(ctx, carryingCount);
   }
   ctx.restore();
 }

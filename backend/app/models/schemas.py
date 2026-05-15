@@ -83,7 +83,7 @@ class SimulationConfig(BaseModel):
 
     width: float = Field(default=960, ge=240, le=3840)
     height: float = Field(default=640, ge=240, le=2160)
-    steps: int = Field(default=600, ge=1, le=10_000)
+    steps: int = Field(default=6000, ge=1, le=10_000)
     tick_interval_ms: int = Field(default=50, ge=16, le=1000)
 
     scout_count: int = Field(default=2, ge=0, le=20)
