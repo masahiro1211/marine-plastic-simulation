@@ -52,6 +52,51 @@ npm run typecheck
 npm start
 ```
 
+## Production Deployment
+
+このリポジトリは backend を Render、frontend を Vercel に分けてデプロイします。
+
+### 1. Backend: Render
+
+Render ではルートの `render.yaml` を Blueprint として使えます。手動作成する場合は以下です。
+
+| Setting | Value |
+|---|---|
+| Runtime | Python |
+| Root Directory | `backend` |
+| Build Command | `pip install --upgrade pip && pip install -r requirements.txt` |
+| Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Health Check Path | `/healthz` |
+
+Render の Environment Variables:
+
+```text
+PYTHON_VERSION=3.12.8
+ALLOWED_ORIGINS=https://your-vercel-app.vercel.app
+ALLOWED_HOSTS=marine-plastic-simulation-api.onrender.com,*.onrender.com
+```
+
+Render の公開 URL が `https://marine-plastic-simulation-api.onrender.com` 以外になった場合は、`ALLOWED_HOSTS` の先頭を実際のホスト名に置き換えてください。
+
+### 2. Frontend: Vercel
+
+ルートの `vercel.json` は monorepo 直下から `frontend` をビルドする設定です。Vercel の Environment Variables には、Render の公開 URL を入れます。
+
+```text
+VITE_API_URL=https://marine-plastic-simulation-api.onrender.com
+VITE_WS_URL=wss://marine-plastic-simulation-api.onrender.com/ws/simulation
+```
+
+`VITE_WS_URL` は省略可能です。省略した場合は `VITE_API_URL` から `wss://.../ws/simulation` を自動生成します。
+
+### 3. CORS Update
+
+Vercel のデプロイ URL が確定したら、Render 側の `ALLOWED_ORIGINS` を実際の Vercel URL に更新して再デプロイします。プレビュー環境も使う場合は、カンマ区切りで追加します。
+
+```text
+ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-preview.vercel.app
+```
+
 ## Tests
 
 ### Backend

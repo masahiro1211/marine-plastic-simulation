@@ -54,6 +54,93 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
+        self.assertEqual(engine.get_snapshot()["score"]["total"], 12)
+
+    def test_default_runtime_is_about_five_minutes(self) -> None:
+        config = SimulationConfig()
+
+        self.assertEqual(config.steps, 6000)
+        self.assertEqual(config.tick_interval_ms, 50)
+        self.assertEqual(config.steps * config.tick_interval_ms, 300_000)
+
+    def test_score_upgrade_enables_speed_and_two_trash_capacity(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=1,
+                marine_life_count=0,
+                initial_trash_count=0,
+                enable_manual_robot=False,
+                predator_count=0,
+                trash_spawn_interval=0,
+                collector_speed=4.0,
+            )
+        )
+        collector = next(agent for agent in engine.collectors if not agent.is_manual)
+
+        engine.delivered_trash = 41
+        collector.update(engine)
+        self.assertFalse(collector.is_upgraded)
+        self.assertEqual(engine.collector_carrying_capacity(), 1)
+        self.assertEqual(collector.speed, 4.0)
+
+        engine.delivered_trash = 42
+        collector.update(engine)
+        self.assertTrue(collector.is_upgraded)
+        self.assertEqual(engine.collector_carrying_capacity(), 2)
+        self.assertGreater(collector.speed, 4.0)
+
+    def test_upgraded_collector_can_carry_and_deliver_two_trash(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=1,
+                marine_life_count=0,
+                initial_trash_count=0,
+                enable_manual_robot=False,
+                predator_count=0,
+                trash_spawn_interval=0,
+            )
+        )
+        collector = next(agent for agent in engine.collectors if not agent.is_manual)
+        engine.delivered_trash = 42
+        trash_a = Trash(engine.base.x, engine.base.y, 0.0)
+        trash_b = Trash(engine.base.x, engine.base.y, 0.0)
+        engine.agents.extend([trash_a, trash_b])
+
+        engine.pick_trash(collector, trash_a)
+        engine.pick_trash(collector, trash_b)
+
+        self.assertEqual(collector.carrying_trash_ids, [trash_a.id, trash_b.id])
+        collector.x = engine.base.x
+        collector.y = engine.base.y
+        engine._resolve_base_interactions()
+
+        self.assertEqual(engine.delivered_trash, 44)
+        self.assertEqual(collector.carrying_trash_ids, [])
+
+    def test_score_1000_completes_simulation(self) -> None:
+        engine = SimulationEngine(
+            SimulationConfig(
+                scout_count=0,
+                collector_count=0,
+                marine_life_count=0,
+                initial_trash_count=0,
+                enable_manual_robot=False,
+                predator_count=0,
+                trash_spawn_interval=0,
+                steps=6000,
+            )
+        )
+        engine.delivered_trash = 83
+        engine.start()
+        engine.step()
+        self.assertEqual(engine.phase, "running")
+
+        engine.delivered_trash = 84
+        engine.step()
+        self.assertEqual(engine.phase, "completed")
+        self.assertFalse(engine.running)
 
     def test_manual_collector_does_not_stop_on_delivery_collision(self) -> None:
         engine = SimulationEngine(

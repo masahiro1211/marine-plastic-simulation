@@ -24,7 +24,9 @@ const PHASE_TONE: Record<SimulationPhase, string> = {
 };
 
 const RANK_TIERS = ["ヤドカリ", "クマノミ", "ウミガメ", "イルカ", "シャチ"];
-const RANK_STEP = 40; // score per filled bar / per tier promotion
+const CLEAR_SCORE = 1000;
+const UPGRADE_SCORE = 500;
+const RANK_STEP = CLEAR_SCORE / RANK_TIERS.length;
 
 interface DeltaItem {
   id: number;
@@ -32,7 +34,7 @@ interface DeltaItem {
 }
 
 /**
- * Render a small "+12" / "−2" burst that floats up from the top of the score
+ * Render a small "+12" / "−20" burst that floats up from the top of the score
  * card whenever the total score changes.
  *
  * @param props Component props.
@@ -137,7 +139,7 @@ export default function StatsPanel({
   const cappedTick = Math.min(tick, totalSteps);
   const totalScore = Math.round(score.total);
 
-  // Floating +12 / −2 deltas — driven by the live total-score delta. We keep a
+  // Floating score deltas — driven by the live total-score delta. We keep a
   // sliding window in state and let each entry self-expire after 1.5s.
   const [deltas, setDeltas] = useState<DeltaItem[]>([]);
   const lastScoreRef = useRef<number>(totalScore);
@@ -204,9 +206,15 @@ export default function StatsPanel({
             <span className="ml-1">回収</span>
           </div>
           <div>
-            <span className="text-[#d05a4f] font-bold">−2</span>
+            <span className="text-[#d05a4f] font-bold">−20</span>
             <span className="ml-1">衝突</span>
           </div>
+        </div>
+        <div className="mt-3 text-[11px] text-[#5d7a85] leading-relaxed">
+          <span className="font-bold text-[#0e6a7b]">{UPGRADE_SCORE}</span>
+          <span className="ml-1">で高速化・2個積載、</span>
+          <span className="font-bold text-[#0e6a7b]">{CLEAR_SCORE}</span>
+          <span className="ml-1">でクリア</span>
         </div>
       </div>
 
