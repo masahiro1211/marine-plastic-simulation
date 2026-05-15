@@ -11,7 +11,7 @@ from app.api.config import router as config_router
 from app.api.simulation import router as simulation_router
 from app.api.stats import router as stats_router
 from app.api.ws import router as ws_router
-from app.security import allowed_hosts, allowed_origins
+from app.security import allowed_hosts, allowed_origin_regex, allowed_origins
 
 app = FastAPI(title="Marine Plastic Simulation")
 
@@ -23,6 +23,7 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins(),
+    allow_origin_regex=allowed_origin_regex(),
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Content-Type"],
