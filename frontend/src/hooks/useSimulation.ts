@@ -35,6 +35,7 @@ const API_URL = trimTrailingSlash(
 );
 const WS_URL =
   env.VITE_WS_URL ?? env.REACT_APP_WS_URL ?? websocketUrlFromApiUrl(API_URL);
+const LIVE_SNAPSHOT_STATE_INTERVAL_MS = 100;
 
 const DEFAULT_STATS: SimulationStats = {
   scouts: 0,
@@ -106,6 +107,9 @@ export default function useSimulation(): SimulationState {
   const [phase, setPhase] = useState<SimulationPhase>("idle");
   const [connected, setConnected] = useState<boolean>(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const latestSnapshotRef = useRef<Partial<SimulationSnapshot> | null>(null);
+  const snapshotTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const lastSnapshotAppliedAtRef = useRef<number>(0);
 
   /**
    * Apply a partial snapshot payload to local React state.
@@ -137,6 +141,51 @@ export default function useSimulation(): SimulationState {
     );
   }, []);
 
+  const clearSnapshotTimer = useCallback(() => {
+    if (snapshotTimerRef.current) {
+      window.clearTimeout(snapshotTimerRef.current);
+      snapshotTimerRef.current = null;
+    }
+  }, []);
+
+  const flushLatestSnapshot = useCallback(() => {
+    const snapshot = latestSnapshotRef.current;
+    if (!snapshot) return;
+    latestSnapshotRef.current = null;
+    clearSnapshotTimer();
+    lastSnapshotAppliedAtRef.current = performance.now();
+    applySnapshot(snapshot);
+  }, [applySnapshot, clearSnapshotTimer]);
+
+  const scheduleSnapshot = useCallback(
+    (data: Partial<SimulationSnapshot>, immediate = false) => {
+      if (immediate || data.phase !== "running") {
+        latestSnapshotRef.current = null;
+        clearSnapshotTimer();
+        lastSnapshotAppliedAtRef.current = performance.now();
+        applySnapshot(data);
+        return;
+      }
+
+      latestSnapshotRef.current = data;
+      const now = performance.now();
+      const elapsed = now - lastSnapshotAppliedAtRef.current;
+
+      if (elapsed >= LIVE_SNAPSHOT_STATE_INTERVAL_MS) {
+        flushLatestSnapshot();
+        return;
+      }
+
+      if (!snapshotTimerRef.current) {
+        snapshotTimerRef.current = window.setTimeout(
+          flushLatestSnapshot,
+          LIVE_SNAPSHOT_STATE_INTERVAL_MS - elapsed,
+        );
+      }
+    },
+    [applySnapshot, clearSnapshotTimer, flushLatestSnapshot],
+  );
+
   /**
    * Open the simulation WebSocket and start receiving tick snapshots.
    */
@@ -151,9 +200,9 @@ export default function useSimulation(): SimulationState {
     ws.onclose = () => setConnected(false);
     ws.onmessage = (event: MessageEvent<string>) => {
       const data: SimulationSnapshot = JSON.parse(event.data);
-      applySnapshot(data);
+      scheduleSnapshot(data);
     };
-  }, [applySnapshot]);
+  }, [scheduleSnapshot]);
 
   /**
    * Close the active simulation WebSocket connection if one exists.
@@ -220,9 +269,9 @@ export default function useSimulation(): SimulationState {
       setConfig(result.config ?? DEFAULT_SIMULATION_CONFIG);
 
       const snapshotResponse = await fetch(`${API_URL}/api/simulation/snapshot`);
-      applySnapshot((await snapshotResponse.json()) as SimulationSnapshot);
+      scheduleSnapshot((await snapshotResponse.json()) as SimulationSnapshot, true);
     },
-    [applySnapshot]
+    [scheduleSnapshot]
   );
 
   /**
@@ -242,16 +291,17 @@ export default function useSimulation(): SimulationState {
       .then((response) => response.json() as Promise<SimulationSnapshot>)
       .then((data) => {
         if (mounted) {
-          applySnapshot(data);
+          scheduleSnapshot(data, true);
         }
       })
       .catch(() => {});
 
     return () => {
       mounted = false;
+      clearSnapshotTimer();
       disconnect();
     };
-  }, [applySnapshot, disconnect]);
+  }, [clearSnapshotTimer, disconnect, scheduleSnapshot]);
 
   return {
     agents,

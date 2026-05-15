@@ -757,7 +757,7 @@ export default function Canvas3D({
     >
       <ThreeCanvas
         camera={{ position: [0, defaultDist * 0.85, defaultDist * 0.7], fov: 45, near: 1, far: sceneSize * 20 }}
-        dpr={[1, 1.5]}
+        dpr={[1, 1.25]}
       >
         <AnimationMixerRegistry>
           <CameraPresetController

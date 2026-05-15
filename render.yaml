@@ -11,6 +11,6 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.8
       - key: ALLOWED_ORIGINS
-        value: https://your-vercel-app.vercel.app
+        value: https://marine-plastic-simulation.vercel.app,https://*.vercel.app
       - key: ALLOWED_HOSTS
         value: marine-plastic-simulation-api.onrender.com,*.onrender.com

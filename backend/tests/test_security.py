@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
 from app.api.ws import _bounded_float
 from app.models.schemas import SimulationConfig
-from app.security import allowed_hosts, allowed_origins, is_allowed_origin
+from app.security import allowed_hosts, allowed_origin_regex, allowed_origins, is_allowed_origin
 
 
 class SecurityHardeningTests(unittest.TestCase):
@@ -26,6 +27,25 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertTrue(is_allowed_origin("http://localhost:3000"))
         self.assertTrue(is_allowed_origin(None))
         self.assertFalse(is_allowed_origin("https://attacker.example"))
+
+    def test_origin_allowlist_accepts_configured_vercel_preview_wildcards(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "ALLOWED_ORIGINS": (
+                    "https://marine-plastic-simulation.vercel.app,"
+                    "https://*.vercel.app"
+                )
+            },
+        ):
+            preview_origin = (
+                "https://marine-plastic-simulatio-git-e7725c-"
+                "masahiros-projects-4d4259d4.vercel.app"
+            )
+            self.assertTrue(is_allowed_origin("https://marine-plastic-simulation.vercel.app"))
+            self.assertTrue(is_allowed_origin(preview_origin))
+            self.assertFalse(is_allowed_origin("https://attacker.example"))
+            self.assertRegex(preview_origin, allowed_origin_regex() or "")
 
     def test_security_defaults_are_not_wildcards(self) -> None:
         self.assertNotIn("*", allowed_origins())
