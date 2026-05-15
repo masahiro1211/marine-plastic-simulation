@@ -2,6 +2,7 @@ import {
   Component,
   Suspense,
   createContext,
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -426,7 +427,7 @@ function TrashMesh({ agent, discovered }: { agent: AgentState; discovered: boole
   );
 }
 
-function AgentNode({
+function AgentNodeView({
   agent,
   cx,
   cz,
@@ -502,6 +503,31 @@ function AgentNode({
     </group>
   );
 }
+
+function modelRelevantMetadata(agent: AgentState): string {
+  if (agent.agent_type === "collector") {
+    return collectorModelPathForAgent(agent);
+  }
+  if (agent.agent_type === "marine_life") {
+    return String(agent.metadata?.species_id ?? 0);
+  }
+  if (agent.agent_type === "predator") {
+    return String(agent.metadata?.mode ?? "");
+  }
+  return "";
+}
+
+const AgentNode = memo(
+  AgentNodeView,
+  (prev, next) =>
+    prev.agent.id === next.agent.id &&
+    prev.agent.agent_type === next.agent.agent_type &&
+    prev.agent.alive === next.agent.alive &&
+    prev.discovered === next.discovered &&
+    prev.cx === next.cx &&
+    prev.cz === next.cz &&
+    modelRelevantMetadata(prev.agent) === modelRelevantMetadata(next.agent),
+);
 
 function yawOffsetForAgent(agent: AgentState): number {
   if (agent.agent_type === "predator") return ORCA_YAW_OFFSET;

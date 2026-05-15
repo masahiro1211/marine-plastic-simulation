@@ -56,6 +56,21 @@ const DEFAULT_SCORE: ScoreState = {
 
 const DEFAULT_BASE: BaseState = { x: 480, y: 604, radius: 48 };
 
+function shallowObjectEqual<T extends Record<string, unknown>>(left: T, right: T): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
+function baseStateEqual(left: BaseState, right: BaseState): boolean {
+  return left.x === right.x && left.y === right.y && left.radius === right.radius;
+}
+
+function stringArrayEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 interface SimulationState {
   agents: AgentState[];
   stats: SimulationStats;
@@ -104,12 +119,22 @@ export default function useSimulation(): SimulationState {
     setTick(data.tick ?? 0);
     setPhase(data.phase ?? "idle");
     if (data.config) {
-      setConfig(data.config);
+      setConfig((current) =>
+        shallowObjectEqual(
+          current as unknown as Record<string, unknown>,
+          data.config as unknown as Record<string, unknown>,
+        )
+          ? current
+          : data.config as SimulationConfig
+      );
     }
     if (data.base) {
-      setBase(data.base);
+      setBase((current) => (baseStateEqual(current, data.base as BaseState) ? current : data.base as BaseState));
     }
-    setDiscoveredTrashIds(data.discovered_trash_ids ?? []);
+    const nextDiscoveredTrashIds = data.discovered_trash_ids ?? [];
+    setDiscoveredTrashIds((current) =>
+      stringArrayEqual(current, nextDiscoveredTrashIds) ? current : nextDiscoveredTrashIds
+    );
   }, []);
 
   /**
