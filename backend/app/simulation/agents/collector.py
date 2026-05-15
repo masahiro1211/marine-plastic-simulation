@@ -14,10 +14,11 @@ class Collector(BaseAgent):
     ):
         super().__init__(x, y)
         self.speed = speed
+        self.base_speed = speed
         self.sensor_radius = sensor_radius
         self.pickup_radius = pickup_radius
         self.energy = max_energy
-        self.carrying_trash_id: str | None = None
+        self.carrying_trash_ids: list[str] = []
 
         # 手動ロボット用の追加プロパティ
         self.is_manual = False
@@ -26,32 +27,45 @@ class Collector(BaseAgent):
         self.slowdown_ticks = 0
         self.is_upgraded = False
 
+    @property
+    def carrying_trash_id(self) -> str | None:
+        """Return the first carried trash id for backward-compatible callers."""
+        return self.carrying_trash_ids[0] if self.carrying_trash_ids else None
+
+    @carrying_trash_id.setter
+    def carrying_trash_id(self, value: str | None) -> None:
+        self.carrying_trash_ids = [] if value is None else [value]
+
     def base_metadata(self) -> dict:
         data = super().base_metadata()
+        carrying_capacity = 2 if self.is_upgraded else 1
         data.update({
             "sensor_radius": self.sensor_radius,
             "pickup_radius": self.pickup_radius,
-            "carrying": self.carrying_trash_id is not None,
+            "carrying": bool(self.carrying_trash_ids),
             "carrying_trash_id": self.carrying_trash_id,
+            "carrying_trash_ids": list(self.carrying_trash_ids),
+            "carrying_count": len(self.carrying_trash_ids),
+            "carrying_capacity": carrying_capacity,
             "is_manual": self.is_manual,
             "slowdown_ticks": self.slowdown_ticks,
-            "is_upgraded": self.is_upgraded
+            "is_upgraded": self.is_upgraded,
+            "upgrade_stage": 1 if self.is_upgraded else 0,
         })
         return data
 
     def apply_collision_penalty(self, penalty_ticks: int) -> None:
         """満載帰還中以外かつ既に停止中でないなら、衝突ペナルティ（停止）を適用する"""
-        if self.is_manual and self.carrying_trash_id is None and self.slowdown_ticks == 0:
+        if self.is_manual and not self.carrying_trash_ids and self.slowdown_ticks == 0:
             self.slowdown_ticks = penalty_ticks
 
     def update(self, world) -> None:
         if not self.alive:
             return
 
-        # Phase 2 (時間半分経過) でのスピードアップ処理
-        if not self.is_upgraded and world.tick >= (world.config.steps / 2):
-            self.speed *= 3.0  # PRの記載に合わせて3倍
-            self.is_upgraded = True
+        self.is_upgraded = world.collector_upgrade_stage() >= 1
+        self.speed = self.base_speed * world.collector_speed_multiplier()
+        carrying_capacity = world.collector_carrying_capacity()
 
         # 衝突ペナルティ中も完全停止にはしない。操作不能に見えるため低速操作を維持する。
         speed_multiplier = 1.0
@@ -76,11 +90,10 @@ class Collector(BaseAgent):
                 self.vy = 0.0
 
             # 基地への帰還表示（描画用）
-            if self.carrying_trash_id:
+            if self.carrying_trash_ids:
                 self.status = "delivering"
 
-            # ゴミの回収 (1個専用。拾うと自動でイベントが発行される)
-            if self.carrying_trash_id is None:
+            if len(self.carrying_trash_ids) < carrying_capacity:
                 local_trash = world.find_trash_near(self.x, self.y, self.pickup_radius)
                 if local_trash:
                     target = min(local_trash, key=self.distance_to)
@@ -90,17 +103,30 @@ class Collector(BaseAgent):
         else:
             # 1. 優先確認：目の前（pickup_radius内）に拾えるゴミがあるかチェック
             target = None
-            if not self.carrying_trash_id:
+            if len(self.carrying_trash_ids) < carrying_capacity:
                 target = world.find_collector_target(self)
                 if target is not None and self.distance_to(target) <= self.pickup_radius:
                     world.pick_trash(self, target)
+                    if len(self.carrying_trash_ids) >= carrying_capacity:
+                        target = None
 
             # --- ここから修正 ---
             is_at_base = self.distance_to_point(world.base.x, world.base.y) <= world.base.radius
 
             # 2. 状態の優先順位に基づく行動決定（if/elif/elseで完全排他にする）
-            if self.carrying_trash_id:
+            if self.carrying_trash_ids and len(self.carrying_trash_ids) >= carrying_capacity:
                 # 優先度1: 運搬中
+                self.status = "delivering"
+                self.target_id = "base"
+                self.set_velocity_towards(world.base.x, world.base.y, current_speed)
+
+            elif self.carrying_trash_ids and target is not None:
+                # 優先度1.5: 強化後は2個目を拾いに行く
+                self.status = "collecting"
+                self.target_id = target.id
+                self.set_velocity_towards(target.x, target.y, current_speed)
+
+            elif self.carrying_trash_ids:
                 self.status = "delivering"
                 self.target_id = "base"
                 self.set_velocity_towards(world.base.x, world.base.y, current_speed)

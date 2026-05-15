@@ -18,6 +18,12 @@ from app.simulation.agents import BaseAgent, Collector, MarineLife, Predator, Sc
 
 
 MAX_HISTORY = 500
+SCORE_PER_DELIVERED_TRASH = 100
+COLLISION_SCORE_PENALTY = 20
+COLLECTOR_UPGRADE_SCORE = 500
+COMPLETION_SCORE = 1000
+COLLECTOR_UPGRADE_SPEED_MULTIPLIER = 1.6
+COLLECTOR_UPGRADE_CAPACITY = 2
 
 
 @dataclass
@@ -269,10 +275,14 @@ class SimulationEngine:
 
         self._resolve_collisions()
         self._resolve_base_interactions()
+        self._sync_collector_upgrades()
         self._cleanup_shared_targets()
         self._record_history()
 
-        if self.tick >= self.config.steps:
+        if self._current_score().total >= COMPLETION_SCORE:
+            self.phase = "completed"
+            self.running = False
+        elif self.tick >= self.config.steps:
             self.phase = "completed"
             self.running = False
 
@@ -585,11 +595,12 @@ class SimulationEngine:
             collector: Collector performing the pickup.
             trash: Trash actor being collected.
         """
-        if collector.carrying_trash_id or not trash.alive:
+        if len(collector.carrying_trash_ids) >= self.collector_carrying_capacity() or not trash.alive:
             return
         trash.alive = False
-        collector.carrying_trash_id = trash.id
-        collector.target_id = "base"
+        collector.carrying_trash_ids.append(trash.id)
+        if len(collector.carrying_trash_ids) >= self.collector_carrying_capacity():
+            collector.target_id = "base"
         self.shared_targets.pop(trash.id, None)
         self.current_events.append(
             SimulationEvent(
@@ -610,10 +621,31 @@ class SimulationEngine:
             True when the robot is carrying trash or low on energy.
         """
         return bool(
-            getattr(robot, "carrying_trash_id", None)
+            getattr(robot, "carrying_trash_ids", None)
+            or getattr(robot, "carrying_trash_id", None)
             or robot.energy <= self.config.low_energy_threshold
             or robot.energy <= 0
         )
+
+    def collector_upgrade_stage(self) -> int:
+        """Return the current score-based collector upgrade stage."""
+        return 1 if self._current_score().total >= COLLECTOR_UPGRADE_SCORE else 0
+
+    def collector_speed_multiplier(self) -> float:
+        """Return the active collector speed multiplier."""
+        return COLLECTOR_UPGRADE_SPEED_MULTIPLIER if self.collector_upgrade_stage() >= 1 else 1.0
+
+    def collector_carrying_capacity(self) -> int:
+        """Return the active collector trash capacity."""
+        return COLLECTOR_UPGRADE_CAPACITY if self.collector_upgrade_stage() >= 1 else 1
+
+    def _sync_collector_upgrades(self) -> None:
+        """Apply score-derived collector stage to serialized runtime state."""
+        upgraded = self.collector_upgrade_stage() >= 1
+        multiplier = self.collector_speed_multiplier()
+        for collector in self.collectors:
+            collector.is_upgraded = upgraded
+            collector.speed = collector.base_speed * multiplier
 
     def apply_robot_avoidance(self, robot: BaseAgent) -> None:
         """Adjust velocity to reduce robot-to-robot crowding.
@@ -725,19 +757,20 @@ class SimulationEngine:
                             tick=self.tick,
                         )
                     )
-            if isinstance(robot, Collector) and robot.carrying_trash_id:
-                delivered_id = robot.carrying_trash_id
-                robot.carrying_trash_id = None
+            if isinstance(robot, Collector) and robot.carrying_trash_ids:
+                delivered_ids = list(robot.carrying_trash_ids)
+                robot.carrying_trash_ids.clear()
                 robot.status = "charging"
-                self.delivered_trash += 1
-                self.current_events.append(
-                    SimulationEvent(
-                        event_type="trash_delivered",
-                        actor_id=robot.id,
-                        target_id=delivered_id,
-                        tick=self.tick,
+                self.delivered_trash += len(delivered_ids)
+                for delivered_id in delivered_ids:
+                    self.current_events.append(
+                        SimulationEvent(
+                            event_type="trash_delivered",
+                            actor_id=robot.id,
+                            target_id=delivered_id,
+                            tick=self.tick,
+                        )
                     )
-                )
 
     def _resolve_collisions(self) -> None:
         """Detect robot collisions and emit collision events."""
@@ -802,8 +835,8 @@ class SimulationEngine:
         """
         energy_remaining = round(sum(robot.energy for robot in self.scouts + self.collectors), 2)
         total = round(
-            self.delivered_trash * 12
-            - self.collisions * 2,
+            self.delivered_trash * SCORE_PER_DELIVERED_TRASH
+            - self.collisions * COLLISION_SCORE_PENALTY,
             2,
         )
         return ScoreState(
@@ -834,6 +867,7 @@ class SimulationEngine:
         Returns:
             Snapshot payload as a plain dictionary.
         """
+        self._sync_collector_upgrades()
         snapshot = SimulationSnapshot(
             tick=self.tick,
             phase=self.phase,

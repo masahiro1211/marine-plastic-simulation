@@ -9,10 +9,16 @@ const collectorRenderer: Renderer = {
     ctx.fill();
 
     if (agent.metadata.carrying) {
+      const carryingCount =
+        typeof agent.metadata.carrying_count === "number"
+          ? Math.max(1, agent.metadata.carrying_count)
+          : 1;
       ctx.fillStyle = "#fbbf24";
-      ctx.beginPath();
-      ctx.arc(-size * 0.2, 0, size * 0.28, 0, Math.PI * 2);
-      ctx.fill();
+      for (let i = 0; i < carryingCount; i++) {
+        ctx.beginPath();
+        ctx.arc(size * 1.25, (i - (carryingCount - 1) / 2) * size * 0.45, size * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   },
 };

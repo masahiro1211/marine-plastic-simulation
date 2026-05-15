@@ -6,7 +6,7 @@
 {
   "width": 960,
   "height": 640,
-  "steps": 600,
+  "steps": 6000,
   "tick_interval_ms": 50,
   "scout_count": 2,
   "collector_count": 3,
@@ -61,7 +61,11 @@
   "energy": 85.0,
   "target_id": "trash-3",
   "metadata": {
-    "sensor_radius": 35
+    "sensor_radius": 42,
+    "carrying_trash_ids": ["trash-3"],
+    "carrying_count": 1,
+    "carrying_capacity": 1,
+    "upgrade_stage": 0
   }
 }
 ```
@@ -85,7 +89,7 @@
 
 ```json
 {
-  "total": 120.0,
+  "total": 1180.0,
   "trash_delivered": 12,
   "collisions": 1,
   "energy_remaining": 210.0
