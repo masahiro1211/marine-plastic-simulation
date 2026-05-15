@@ -139,29 +139,64 @@ function useManagedAnimations(
 }
 
 class ModelErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode; resetKey: string },
-  { hasError: boolean }
+  { children: ReactNode; resetKey: string },
+  { hasError: boolean; retry: number }
 > {
-  state = { hasError: false };
+  state = { hasError: false, retry: 0 };
+  private retryTimer: ReturnType<typeof window.setTimeout> | null = null;
 
   static getDerivedStateFromError() {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error) {
+    const gltfCache = useGLTF as typeof useGLTF & {
+      clear?: (input: string | string[]) => void;
+    };
+    gltfCache.clear?.(this.props.resetKey);
     if (import.meta.env.DEV) {
-      console.warn(`[Canvas3D] Falling back from ${this.props.resetKey}`, error);
+      console.warn(`[Canvas3D] Recreating ${this.props.resetKey}`, error);
     }
+    if (this.retryTimer) {
+      window.clearTimeout(this.retryTimer);
+    }
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = null;
+      this.setState((state) => ({ hasError: false, retry: state.retry + 1 }));
+    }, 750);
   }
 
   componentDidUpdate(prevProps: Readonly<{ resetKey: string }>) {
     if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ hasError: false });
+      this.setState((state) => ({ hasError: false, retry: state.retry + 1 }));
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.retryTimer) {
+      window.clearTimeout(this.retryTimer);
+      this.retryTimer = null;
     }
   }
 
   render() {
-    return this.state.hasError ? this.props.fallback : this.props.children;
+    if (this.state.hasError) return null;
+    return <group key={`${this.props.resetKey}:${this.state.retry}`}>{this.props.children}</group>;
+  }
+}
+
+function assertRenderableScene(scene: THREE.Object3D, modelPath: string) {
+  let renderableMeshes = 0;
+  scene.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.visible || !mesh.geometry) return;
+    const position = mesh.geometry.getAttribute("position");
+    if (position && position.count > 0) {
+      renderableMeshes += 1;
+    }
+  });
+  if (renderableMeshes === 0) {
+    throw new Error(`${modelPath} has no renderable mesh geometry`);
   }
 }
 
@@ -174,8 +209,12 @@ function TurnTowardVelocity({
 }
 
 function OrcaPredator({ agent }: { agent: AgentState }) {
-  const { scene, animations } = useGLTF("/models/orca.glb");
-  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const modelPath = "/models/orca.glb";
+  const { scene, animations } = useGLTF(modelPath);
+  const cloned = useMemo(() => {
+    assertRenderableScene(scene, modelPath);
+    return SkeletonUtils.clone(scene);
+  }, [scene]);
   const { actions, names } = useManagedAnimations(animations, cloned);
 
   useEffect(() => {
@@ -203,8 +242,12 @@ const SCOUT_YAW_OFFSET = Math.PI;
 const SCOUT_BASE_SCALE = 4;
 
 function ScoutMesh({ agent }: { agent: AgentState }) {
-  const { scene, animations } = useGLTF("/models/scout.glb");
-  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const modelPath = "/models/scout.glb";
+  const { scene, animations } = useGLTF(modelPath);
+  const cloned = useMemo(() => {
+    assertRenderableScene(scene, modelPath);
+    return SkeletonUtils.clone(scene);
+  }, [scene]);
   const { actions, names } = useManagedAnimations(animations, cloned);
 
   useEffect(() => {
@@ -260,7 +303,10 @@ function collectorModelPath(isManual: boolean, carriedIds: string[]): string {
 
 function CollectorMesh({ agent, modelPath }: { agent: AgentState; modelPath: string }) {
   const { scene, animations } = useGLTF(modelPath);
-  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const cloned = useMemo(() => {
+    assertRenderableScene(scene, modelPath);
+    return SkeletonUtils.clone(scene);
+  }, [modelPath, scene]);
   const { actions, names } = useManagedAnimations(animations, cloned);
 
   useEffect(() => {
@@ -289,7 +335,10 @@ function FishMesh({ agent }: { agent: AgentState }) {
   const speciesId = Number(agent.metadata?.species_id ?? 0);
   const modelPath = FISH_MODEL_BY_SPECIES[speciesId] ?? FISH_MODEL_BY_SPECIES[0];
   const { scene, animations } = useGLTF(modelPath);
-  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const cloned = useMemo(() => {
+    assertRenderableScene(scene, modelPath);
+    return SkeletonUtils.clone(scene);
+  }, [modelPath, scene]);
   const { actions, names } = useManagedAnimations(
     animations,
     cloned,
@@ -339,7 +388,10 @@ function TrashMesh({ agent, discovered }: { agent: AgentState; discovered: boole
   const useCan = isCanTrash(agent.id);
   const modelPath = useCan ? "/models/can.glb" : "/models/plastic_bottle.glb";
   const { scene } = useGLTF(modelPath);
-  const cloned = useMemo(() => SkeletonUtils.clone(scene), [scene]);
+  const cloned = useMemo(() => {
+    assertRenderableScene(scene, modelPath);
+    return SkeletonUtils.clone(scene);
+  }, [modelPath, scene]);
   const scale = useCan ? CAN_SCALE : BOTTLE_SCALE;
   const rotationY = trashRotationY(agent.id);
 
@@ -359,31 +411,6 @@ function TrashMesh({ agent, discovered }: { agent: AgentState; discovered: boole
         </mesh>
       )}
     </TurnTowardVelocity>
-  );
-}
-
-function TrashFallback({ id, discovered }: { id: string; discovered: boolean }) {
-  const h = hashAgentId(id);
-  const color = (h & 1) === 0 ? "#f97316" : "#facc15";
-  const rotation = useMemo<[number, number, number]>(() => {
-    const r1 = (h & 0xffff) / 0xffff;
-    const r2 = ((h >>> 16) & 0xffff) / 0xffff;
-    return [r1 * Math.PI, r2 * Math.PI, 0];
-  }, [h]);
-
-  return (
-    <group>
-      <mesh rotation={rotation}>
-        <boxGeometry args={[70, 50, 100]} />
-        <meshStandardMaterial color={color} roughness={0.85} metalness={0.05} />
-      </mesh>
-      {discovered && (
-        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[28, 36, 48]} />
-          <meshBasicMaterial color="#ef4444" transparent opacity={0.85} side={THREE.DoubleSide} />
-        </mesh>
-      )}
-    </group>
   );
 }
 
@@ -419,25 +446,22 @@ function AgentNode({
   return (
     <group ref={setGroupRef} position={initialPositionRef.current}>
       {agent.agent_type === "predator" && (
-        <ModelErrorBoundary resetKey="/models/orca.glb" fallback={<PredatorFallback agent={agent} />}>
-          <Suspense fallback={<PredatorFallback agent={agent} />}>
+        <ModelErrorBoundary resetKey="/models/orca.glb">
+          <Suspense fallback={null}>
             <OrcaPredator agent={agent} />
           </Suspense>
         </ModelErrorBoundary>
       )}
       {agent.agent_type === "scout" && (
-        <ModelErrorBoundary resetKey="/models/scout.glb" fallback={<ScoutFallback agent={agent} />}>
-          <Suspense fallback={<ScoutFallback agent={agent} />}>
+        <ModelErrorBoundary resetKey="/models/scout.glb">
+          <Suspense fallback={null}>
             <ScoutMesh agent={agent} />
           </Suspense>
         </ModelErrorBoundary>
       )}
       {agent.agent_type === "collector" && (
-        <ModelErrorBoundary
-          resetKey={collectorModelPath ?? "/models/collector.glb"}
-          fallback={<CollectorFallback agent={agent} />}
-        >
-          <Suspense fallback={<CollectorFallback agent={agent} />}>
+        <ModelErrorBoundary resetKey={collectorModelPath ?? "/models/collector.glb"}>
+          <Suspense fallback={null}>
             <CollectorMesh agent={agent} modelPath={collectorModelPath ?? "/models/collector.glb"} />
           </Suspense>
         </ModelErrorBoundary>
@@ -448,9 +472,8 @@ function AgentNode({
             FISH_MODEL_BY_SPECIES[Number(agent.metadata?.species_id ?? 0)] ??
             FISH_MODEL_BY_SPECIES[0]
           }
-          fallback={<FishFallback agent={agent} />}
         >
-          <Suspense fallback={<FishFallback agent={agent} />}>
+          <Suspense fallback={null}>
             <FishMesh agent={agent} />
           </Suspense>
         </ModelErrorBoundary>
@@ -458,9 +481,8 @@ function AgentNode({
       {agent.agent_type === "trash" && (
         <ModelErrorBoundary
           resetKey={isCanTrash(agent.id) ? "/models/can.glb" : "/models/plastic_bottle.glb"}
-          fallback={<TrashFallback id={agent.id} discovered={discovered} />}
         >
-          <Suspense fallback={<TrashFallback id={agent.id} discovered={discovered} />}>
+          <Suspense fallback={null}>
             <TrashMesh agent={agent} discovered={discovered} />
           </Suspense>
         </ModelErrorBoundary>
@@ -547,73 +569,6 @@ function AgentsLayer({
         />
       ))}
     </>
-  );
-}
-
-function ScoutFallback({ agent }: { agent: AgentState }) {
-  return (
-    <TurnTowardVelocity>
-      <mesh>
-        <coneGeometry args={[5, 14, 4]} />
-        <meshStandardMaterial color="#38bdf8" emissive="#0284c7" emissiveIntensity={0.4} />
-      </mesh>
-    </TurnTowardVelocity>
-  );
-}
-
-function PredatorFallback({ agent }: { agent: AgentState }) {
-  const chasing = agent.metadata?.mode === "chase";
-  return (
-    <TurnTowardVelocity>
-      <mesh scale={chasing ? 1.15 : 1}>
-        <coneGeometry args={[11, 34, 5]} />
-        <meshStandardMaterial color={chasing ? "#991b1b" : "#334155"} roughness={0.65} />
-      </mesh>
-    </TurnTowardVelocity>
-  );
-}
-
-function CollectorFallback({ agent }: { agent: AgentState }) {
-  const carrying = Boolean(agent.metadata?.carrying);
-  const carryingCount =
-    typeof agent.metadata?.carrying_count === "number"
-      ? Math.max(1, agent.metadata.carrying_count)
-      : carrying
-      ? 1
-      : 0;
-  return (
-    <TurnTowardVelocity>
-      <mesh>
-        <boxGeometry args={[20, 8, 12]} />
-        <meshStandardMaterial color="#34d399" emissive="#047857" emissiveIntensity={0.25} />
-      </mesh>
-      {Array.from({ length: carryingCount }).map((_, index) => (
-        <mesh key={index} position={[16, 7, index === 0 ? -4 : 4]} rotation={[0.3, Math.PI / 5, -0.2]}>
-          <boxGeometry args={[8, 4, 5]} />
-          <meshStandardMaterial color="#f97316" roughness={0.85} metalness={0.08} />
-        </mesh>
-      ))}
-    </TurnTowardVelocity>
-  );
-}
-
-function FishFallback({ agent }: { agent: AgentState }) {
-  const speciesId = (agent.metadata?.species_id as number) ?? 0;
-  const colors = ["#7dd3fc", "#86efac", "#fca5a5"];
-  const color = colors[speciesId] ?? colors[0];
-  return (
-    <TurnTowardVelocity>
-      <group scale={agent.alive ? 1.5 : 0.6}>
-        <mesh rotation={[0, Math.PI / 2, 0]}>
-          <sphereGeometry args={[6, 12, 8]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-        <mesh position={[-7, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <coneGeometry args={[4, 6, 4]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-      </group>
-    </TurnTowardVelocity>
   );
 }
 
