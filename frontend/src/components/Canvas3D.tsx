@@ -91,10 +91,23 @@ const CARRIED_BOTTLE_SCALE = 50;
 const ORCA_YAW_OFFSET = Math.PI;
 
 const ORCA_BASE_SCALE = 4.5;
-const POSITION_FOLLOW_RATE = 18;
 const POSITION_SNAP_DISTANCE = 180;
+const SNAPSHOT_INTERPOLATION_DELAY_MS = 120;
+const SNAPSHOT_SAMPLE_MAX_AGE_MS = 1000;
 const FISH_ANIMATION_UPDATE_INTERVAL = 1 / 20;
 const FULL_RATE_ANIMATION_UPDATE_INTERVAL = 0;
+
+interface AgentSnapshotSample {
+  time: number;
+  agentsById: Map<string, AgentState>;
+}
+
+interface InterpolatedMotion {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
 
 interface CanvasPerfOptions {
   enabled: boolean;
@@ -105,6 +118,7 @@ interface CanvasPerfOptions {
   hideFloor: boolean;
   hideGrid: boolean;
   skipModelPreloads: boolean;
+  disableInterpolation: boolean;
   agentLimit: number | null;
   dpr: number | null;
 }
@@ -140,6 +154,7 @@ function readCanvasPerfOptions(): CanvasPerfOptions {
     has("perfNoFloor") ||
     has("perfNoGrid") ||
     has("perfNoPreload") ||
+    has("perfNoInterp") ||
     agentLimit !== null ||
     dpr !== null;
 
@@ -152,6 +167,7 @@ function readCanvasPerfOptions(): CanvasPerfOptions {
     hideFloor: flag("perfNoFloor"),
     hideGrid: flag("perfNoGrid"),
     skipModelPreloads: flag("perfNoPreload"),
+    disableInterpolation: flag("perfNoInterp"),
     agentLimit,
     dpr,
   };
@@ -747,6 +763,66 @@ function yawOffsetForAgent(agent: AgentState): number {
   return 0;
 }
 
+function lerp(left: number, right: number, alpha: number): number {
+  return left + (right - left) * alpha;
+}
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function resolveInterpolatedMotion(
+  agent: AgentState,
+  samples: AgentSnapshotSample[],
+  renderTime: number,
+): InterpolatedMotion {
+  if (samples.length < 2) {
+    return { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy };
+  }
+
+  let previous = samples[0];
+  let next = samples[samples.length - 1];
+  for (let i = 0; i < samples.length - 1; i++) {
+    const left = samples[i];
+    const right = samples[i + 1];
+    if (left.time <= renderTime && renderTime <= right.time) {
+      previous = left;
+      next = right;
+      break;
+    }
+  }
+
+  const previousAgent = previous.agentsById.get(agent.id);
+  const nextAgent = next.agentsById.get(agent.id);
+  if (!previousAgent || !nextAgent) {
+    return { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy };
+  }
+
+  const span = Math.max(next.time - previous.time, 1);
+  const alpha = clamp01((renderTime - previous.time) / span);
+  return {
+    x: lerp(previousAgent.x, nextAgent.x, alpha),
+    y: lerp(previousAgent.y, nextAgent.y, alpha),
+    vx: lerp(previousAgent.vx, nextAgent.vx, alpha),
+    vy: lerp(previousAgent.vy, nextAgent.vy, alpha),
+  };
+}
+
+function shouldResetMotionSamples(
+  latestSample: AgentSnapshotSample,
+  nextAgents: AgentState[],
+): boolean {
+  const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
+  for (const agent of nextAgents) {
+    const previous = latestSample.agentsById.get(agent.id);
+    if (!previous) continue;
+    const dx = agent.x - previous.x;
+    const dy = agent.y - previous.y;
+    if (dx * dx + dy * dy > snapDistanceSq) return true;
+  }
+  return false;
+}
+
 function AgentsLayer({
   agents,
   discoveredSet,
@@ -761,6 +837,7 @@ function AgentsLayer({
   perfOptions: CanvasPerfOptions;
 }) {
   const agentGroupsRef = useRef(new Map<string, THREE.Group>());
+  const snapshotSamplesRef = useRef<AgentSnapshotSample[]>([]);
 
   const registerAgentGroup = useCallback((id: string, group: THREE.Group | null) => {
     if (group) {
@@ -778,16 +855,40 @@ function AgentsLayer({
     [agents, perfOptions.agentLimit],
   );
 
-  useFrame((_, delta) => {
-    const alpha = 1 - Math.exp(-POSITION_FOLLOW_RATE * delta);
+  useEffect(() => {
+    const now = performance.now();
+    const samples = snapshotSamplesRef.current;
+    const latestSample = samples[samples.length - 1];
+    if (latestSample && shouldResetMotionSamples(latestSample, visibleAgents)) {
+      samples.length = 0;
+    }
+    samples.push({
+      time: now,
+      agentsById: new Map(visibleAgents.map((agent) => [agent.id, agent])),
+    });
+
+    while (
+      samples.length > 12 ||
+      (samples.length > 2 && now - samples[0].time > SNAPSHOT_SAMPLE_MAX_AGE_MS)
+    ) {
+      samples.shift();
+    }
+  }, [visibleAgents]);
+
+  useFrame(() => {
     const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
+    const renderTime = performance.now() - SNAPSHOT_INTERPOLATION_DELAY_MS;
+    const samples = snapshotSamplesRef.current;
 
     for (const agent of visibleAgents) {
       const group = agentGroupsRef.current.get(agent.id);
       if (!group) continue;
 
-      const wx = agent.x - cx;
-      const wz = agent.y - cz;
+      const motion = perfOptions.disableInterpolation
+        ? { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy }
+        : resolveInterpolatedMotion(agent, samples, renderTime);
+      const wx = motion.x - cx;
+      const wz = motion.y - cz;
       const y = agent.agent_type === "predator" ? 14 : 8;
       const dx = wx - group.position.x;
       const dy = y - group.position.y;
@@ -796,12 +897,10 @@ function AgentsLayer({
       if (dx * dx + dy * dy + dz * dz > snapDistanceSq) {
         group.position.set(wx, y, wz);
       } else {
-        group.position.x += dx * alpha;
-        group.position.y += dy * alpha;
-        group.position.z += dz * alpha;
+        group.position.set(wx, y, wz);
       }
 
-      const { vx, vy } = agent;
+      const { vx, vy } = motion;
       if (vx * vx + vy * vy > 1e-3) {
         const target = Math.atan2(vx, vy) + yawOffsetForAgent(agent);
         let diff = target - group.rotation.y;
@@ -983,6 +1082,7 @@ function PerfOverlay({
     options.hideFloor && "no-floor",
     options.hideGrid && "no-grid",
     options.skipModelPreloads && "no-preload",
+    options.disableInterpolation && "no-interp",
     options.agentLimit !== null && `limit:${Math.floor(options.agentLimit)}`,
     options.dpr !== null && `dpr:${options.dpr}`,
   ].filter(Boolean);
