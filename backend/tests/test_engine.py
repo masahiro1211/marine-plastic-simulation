@@ -54,14 +54,14 @@ class SimulationEngineTests(unittest.TestCase):
 
         self.assertEqual(engine.delivered_trash, 1)
         self.assertEqual(engine.get_snapshot()["stats"]["delivered_trash"], 1)
-        self.assertEqual(engine.get_snapshot()["score"]["total"], 12)
+        self.assertEqual(engine.get_snapshot()["score"]["total"], 100)
 
-    def test_default_runtime_is_about_five_minutes(self) -> None:
+    def test_default_runtime_is_about_100_seconds(self) -> None:
         config = SimulationConfig()
 
-        self.assertEqual(config.steps, 6000)
+        self.assertEqual(config.steps, 2000)
         self.assertEqual(config.tick_interval_ms, 50)
-        self.assertEqual(config.steps * config.tick_interval_ms, 300_000)
+        self.assertEqual(config.steps * config.tick_interval_ms, 100_000)
 
     def test_score_upgrade_enables_speed_and_two_trash_capacity(self) -> None:
         engine = SimulationEngine(
@@ -78,13 +78,13 @@ class SimulationEngineTests(unittest.TestCase):
         )
         collector = next(agent for agent in engine.collectors if not agent.is_manual)
 
-        engine.delivered_trash = 83
+        engine.delivered_trash = 9
         collector.update(engine)
         self.assertFalse(collector.is_upgraded)
         self.assertEqual(engine.collector_carrying_capacity(), 1)
         self.assertEqual(collector.speed, 4.0)
 
-        engine.delivered_trash = 84
+        engine.delivered_trash = 10
         collector.update(engine)
         self.assertTrue(collector.is_upgraded)
         self.assertEqual(engine.collector_carrying_capacity(), 2)
@@ -119,7 +119,7 @@ class SimulationEngineTests(unittest.TestCase):
         self.assertEqual(engine.delivered_trash, 86)
         self.assertEqual(collector.carrying_trash_ids, [])
 
-    def test_score_2000_completes_simulation(self) -> None:
+    def test_score_10000_completes_simulation(self) -> None:
         engine = SimulationEngine(
             SimulationConfig(
                 scout_count=0,
@@ -132,12 +132,12 @@ class SimulationEngineTests(unittest.TestCase):
                 steps=6000,
             )
         )
-        engine.delivered_trash = 166
+        engine.delivered_trash = 99
         engine.start()
         engine.step()
         self.assertEqual(engine.phase, "running")
 
-        engine.delivered_trash = 167
+        engine.delivered_trash = 100
         engine.step()
         self.assertEqual(engine.phase, "completed")
         self.assertFalse(engine.running)

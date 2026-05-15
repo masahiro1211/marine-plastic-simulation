@@ -3,7 +3,7 @@ import type { SimulationConfig } from "../types";
 export const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
   width: 960,
   height: 640,
-  steps: 6000,
+  steps: 2000,
   tick_interval_ms: 50,
   scout_count: 2,
   collector_count: 3,
