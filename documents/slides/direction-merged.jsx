@@ -24,9 +24,8 @@ function DirMerged() {
     <div style={dmStyles.poster}>
       {/* === HEADER (style A) === */}
       <div style={dmStyles.brandbar}>
-        <span style={{ fontWeight: 800 }}>REEF&nbsp;PATROL</span>
-        <span>海洋ごみ回収シミュレーション · 解説パネル</span>
-        <span>2026 / FOR&nbsp;EVERYONE</span>
+        <span style={{ fontWeight: 800 }}>ロボットシミュレーションゲーム</span>
+        <span>Scout と Collector が海洋ごみを回収する · 解説パネル</span>
       </div>
       <div style={dmStyles.hero}>
         <HeroScene palette="panel" />
@@ -46,28 +45,20 @@ function DirMerged() {
             ロボットと海のいきものが、ひとつの海でくらすシミュレーション。
           </div>
         </div>
-        <div style={{
-          position: 'absolute', top: 16, right: 28,
-          background: 'rgba(255,255,255,0.94)', padding: '5px 12px', borderRadius: 3,
-          fontSize: 10.5, fontWeight: 800, color: '#0b3a5c', letterSpacing: '0.08em',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-        }}>
-          A1 / SLIDE&nbsp;1&nbsp;OF&nbsp;2
-        </div>
       </div>
 
       {/* === BODY === */}
       <div style={{ padding: '14px 44px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* 01 Cast (A) */}
-        <SectionA num="01" kicker="CAST · とうじょうじんぶつ" title="海でくらす 5 つの仲間">
+        <SectionA num="01" kicker="CAST" title="海でくらす 5 つのエージェント">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
             {[
-              { kind: 'scout', name: 'スカウト', role: '海面ロボット', desc: 'すばやく海を巡回し、ゴミの場所を仲間に伝える。' },
-              { kind: 'collector', name: '回収ロボット', role: 'コレクター', desc: '知らせを受けてゴミを拾い、基地へ運ぶ。' },
-              { kind: 'fish', name: '魚たち', role: '群れ', desc: '群れで泳ぐ。ときどきゴミを食べてしまう。' },
-              { kind: 'orca', name: 'シャチ', role: '捕食者', desc: '魚を追いかける、海のハンター。' },
-              { kind: 'trash', name: '海のごみ', role: '環境', desc: '川や港から海へ流れ込み、海流で集まる。' },
+              { kind: 'scout', name: 'スカウト機', desc: 'すばやく海を巡回し、ゴミの場所を仲間に伝える。' },
+              { kind: 'collector', name: 'コレクター機', desc: '知らせを受けてゴミを拾い、基地へ運ぶ。' },
+              { kind: 'fish', name: '魚たち', desc: '群れで泳ぐ。ときどきゴミを食べてしまう。' },
+              { kind: 'orca', name: 'シャチ', desc: '魚を追いかける、海のハンター。' },
+              { kind: 'trash', name: '海のごみ', desc: '川や港から海へ流れ込み、海流で集まる。' },
             ].map((a) => (
               <div key={a.name} style={{
                 background: '#fff', padding: '8px 10px 10px',
@@ -86,7 +77,7 @@ function DirMerged() {
         </SectionA>
 
         {/* 02 Relations (A) */}
-        <SectionA num="02" kicker="RELATIONS · どうかかわるの?" title="5 つの矢印で読みとく、海の関係図">
+        <SectionA num="02" kicker="RELATIONS · 関連性" title="5 つの矢印で読みとく、海の関係図">
           <div style={{ background: '#fff', padding: '10px 14px 6px', boxShadow: '0 2px 10px rgba(11,58,92,0.08)' }}>
             <RelMapMerged />
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4, fontSize: 10.5, color: '#355f80' }}>
@@ -107,7 +98,6 @@ function DirMerged() {
               <div style={{ fontSize: 10, letterSpacing: '0.26em', fontWeight: 800, color: '#ffd84d' }}>SCORING</div>
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <BigScoreM op="+12" label="ゴミを基地に運ぶ" tone="plus" />
-                <BigScoreM op="+α" label="残エネルギーボーナス" tone="plus" />
                 <BigScoreM op="−2" label="ロボット同士の衝突" tone="minus" />
               </div>
             </div>
@@ -130,7 +120,7 @@ function DirMerged() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <WatchM no="A" title="魚の群れ方" body="近くの仲間とそろうルールだけで、群れが立ち上がる。" />
               <WatchM no="B" title="シャチ接近" body="群れがぱっと散って、また集まる。" />
-              <WatchM no="C" title="ごみのたまり場" body="海流に乗って同じ場所に集まる。" />
+              <WatchM no="C" title="役割分担" body="スカウトが見つけて、コレクターが運ぶ。" />
             </div>
             <div style={{
               marginTop: 8, padding: '8px 12px',
@@ -152,7 +142,7 @@ function DirMerged() {
           </StepM>
 
           {/* 05 Play — friendlier */}
-          <StepM no="05" kicker="PLAY" title="さあ、自分でも動かしてみよう!" theme="friendly" last>
+          <StepM no="05" kicker="PLAY" title="コレクター機を自分で動かしてみよう!できるだけ多く、他のロボットとぶつからないように！" theme="friendly" last>
             <PlayFriendly />
           </StepM>
         </div>
@@ -168,8 +158,6 @@ function DirMerged() {
         borderTop: '1px solid rgba(11,58,92,0.12)',
         background: '#f3f7fa',
       }}>
-        <div>REEF PATROL · OCEAN PLASTIC CLEANUP SIMULATION</div>
-        <div>SLIDE&nbsp;1&nbsp;/&nbsp;2 · FOR&nbsp;EVERYONE</div>
       </div>
     </div>
   );
@@ -233,30 +221,40 @@ function BigScoreM({ op, label, tone }) {
 
 function RankLadderM() {
   const ranks = [
-    { icon: '🦀', name: 'ヤドカリ', th: '0' },
-    { icon: '🐠', name: 'クマノミ', th: '40' },
-    { icon: '🐢', name: 'ウミガメ', th: '80' },
-    { icon: '🐬', name: 'イルカ', th: '120' },
-    { icon: '🦈', name: 'シャチ', th: '160' },
+    { icon: '🦀', name: 'ヤドカリ' },
+    { icon: '🐠', name: 'クマノミ' },
+    { icon: '🐢', name: 'ウミガメ' },
+    { icon: '🐬', name: 'イルカ' },
+    { icon: '🦈', name: 'シャチ' },
   ];
   return (
-    <div style={{ marginTop: 8, position: 'relative', height: 86 }}>
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 18, height: 2, background: 'linear-gradient(90deg,#cfe9f3,#0b3a5c)' }} />
-      {ranks.map((r, i) => {
-        const y = 64 - i * 12;
-        const x = `${i * 24 + 4}%`;
-        return (
+    <div style={{ marginTop: 10, position: 'relative' }}>
+      <div style={{
+        position: 'absolute', left: '10%', right: '10%', top: 11, height: 3,
+        background: 'linear-gradient(90deg,#cfe9f3,#0b3a5c)',
+        borderRadius: 2,
+      }} />
+      <div style={{
+        position: 'relative',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(5, 1fr)',
+        gap: 4,
+      }}>
+        {ranks.map((r) => (
           <div key={r.name} style={{
-            position: 'absolute', left: x, bottom: y,
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            transform: 'translateX(-50%)',
           }}>
-            <div style={{ fontSize: 20, lineHeight: 1 }}>{r.icon}</div>
-            <div style={{ fontSize: 10.5, fontWeight: 900, color: '#0b3a5c', marginTop: 1 }}>{r.name}</div>
-            <div style={{ fontSize: 9, color: '#5d7898', fontFamily: 'ui-monospace,Menlo,monospace' }}>{r.th}+</div>
+            <div style={{
+              fontSize: 22, lineHeight: 1,
+              background: '#fff', padding: '0 4px',
+            }}>{r.icon}</div>
+            <div style={{
+              fontSize: 11, fontWeight: 900, color: '#0b3a5c',
+              marginTop: 4, whiteSpace: 'nowrap',
+            }}>{r.name}</div>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
@@ -303,7 +301,7 @@ function StepM({ no, kicker, title, theme, children, last }) {
           borderRadius: 4,
           border: '2px solid #ffd84d',
         }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.26em', fontWeight: 800, color: '#0b3a5c' }}>{kicker} · じゅんびできた?</div>
+          <div style={{ fontSize: 10, letterSpacing: '0.26em', fontWeight: 800, color: '#0b3a5c' }}>{kicker} </div>
           <div style={{ fontSize: 19, fontWeight: 900, color: '#0b3a5c', marginTop: 1, marginBottom: 7, lineHeight: 1.1 }}>{title}</div>
           {children}
         </div>
@@ -379,7 +377,7 @@ function PlayFriendly() {
             borderRight: '8px solid #fff',
           }} />
           <div style={{ fontSize: 13.5, fontWeight: 900, color: '#0b3a5c', lineHeight: 1.4 }}>
-            キーで動かして、ゴミを基地まで運んでね! <span style={{ color: '#ff5d3b' }}>たのしいよ!</span>
+            キーで動かして、ゴミを基地まで運んでね!
           </div>
         </div>
 
@@ -398,11 +396,6 @@ function PlayFriendly() {
             <FriendlyKey label="→" tone="#74d6c7" />
           </div>
           {/* Difficulty mascot row */}
-          <div style={{ display: 'flex', gap: 6 }}>
-            <DiffFriendly emoji="🐚" name="やさしい" tone="#74d6c7" />
-            <DiffFriendly emoji="🐟" name="ふつう" tone="#4aa3ff" />
-            <DiffFriendly emoji="🦈" name="むずかしい" tone="#ff7a59" />
-          </div>
         </div>
       </div>
     </div>
@@ -444,19 +437,42 @@ function DiffFriendly({ emoji, name, tone }) {
 
 function ParadoxGraphM() {
   return (
-    <svg viewBox="0 0 420 100" width="100%">
-      <line x1="40" y1="80" x2="400" y2="80" stroke="#fff" strokeWidth="1.4" opacity="0.6" />
-      <line x1="40" y1="80" x2="40" y2="10" stroke="#fff" strokeWidth="1.4" opacity="0.6" />
-      <g fontSize="9" fill="#cfe9f3" textAnchor="middle">
-        <text x="100" y="95">1台</text><text x="180" y="95">3台</text>
-        <text x="260" y="95">5台</text><text x="340" y="95">7台</text>
-      </g>
-      <polyline points="100,72 180,56 260,36 340,16" fill="none" stroke="#ffd84d" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox="0 0 420 120" width="100%">
+      {/* axes */}
+      <line x1="60" y1="88" x2="395" y2="88" stroke="#fff" strokeWidth="1.4" opacity="0.6" />
+      <line x1="60" y1="88" x2="60" y2="22" stroke="#fff" strokeWidth="1.4" opacity="0.6" />
+
+      {/* Y axis label */}
+      <text x="60" y="16" fontSize="9" fontWeight="800" fill="#cfe9f3" textAnchor="start">スコア ↑</text>
+
+      {/* X axis label */}
+      <text x="395" y="115" fontSize="9" fontWeight="800" fill="#cfe9f3" textAnchor="end">ロボット台数 →</text>
+
+      {/* 回収数 — rising & saturating (light teal, dashed) */}
+      <polyline points="100,72 180,50 260,36 340,30" fill="none" stroke="#5eead4" strokeWidth="1.6" strokeDasharray="3 3" opacity="0.8" />
+      <text x="346" y="32" fontSize="8.5" fontWeight="700" fill="#5eead4">回収↑</text>
+
+      {/* 衝突数 — accelerating (light coral, dashed) */}
+      <polyline points="100,86 180,78 260,56 340,24" fill="none" stroke="#fda4af" strokeWidth="1.6" strokeDasharray="3 3" opacity="0.85" />
+      <text x="346" y="20" fontSize="8.5" fontWeight="700" fill="#fda4af">衝突↑</text>
+
+      {/* 正味スコア — main yellow hill */}
+      <polyline points="100,68 180,28 260,46 340,80" fill="none" stroke="#ffd84d" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
       <g fill="#ffd84d">
-        <circle cx="100" cy="72" r="3.5" /><circle cx="180" cy="56" r="3.5" />
-        <circle cx="260" cy="36" r="3.5" /><circle cx="340" cy="16" r="3.5" />
+        <circle cx="100" cy="68" r="3.2" />
+        <circle cx="180" cy="28" r="4.6" stroke="#fff" strokeWidth="1.4" />
+        <circle cx="260" cy="46" r="3.2" />
+        <circle cx="340" cy="80" r="3.2" />
       </g>
-      <text x="340" y="8" textAnchor="middle" fontSize="9.5" fontWeight="800" fill="#ffd84d">渋滞↑</text>
+
+      {/* peak marker */}
+      <text x="180" y="19" fontSize="10" fontWeight="900" fill="#ffd84d" textAnchor="middle">★ 最適台数</text>
+
+      {/* legend */}
+      <g transform="translate(66,116)" fontSize="8.5" fontWeight="700">
+        <line x1="0" y1="-2" x2="10" y2="-2" stroke="#ffd84d" strokeWidth="2.4" />
+        <text x="14" y="1" fill="#ffd84d">正味スコア = 回収 − 衝突</text>
+      </g>
     </svg>
   );
 }
@@ -491,10 +507,10 @@ function RelMapMerged() {
       <text x="460" y="132" textAnchor="middle" fontSize="11" fontWeight="800" fill="#ff5d3b">③シャチが魚を追う</text>
 
       <path d="M 305 112 C 340 90, 370 74, 400 72" stroke="#1ea99c" strokeWidth="2.2" strokeDasharray="5 3" fill="none" markerEnd="url(#arrMt)" />
-      <text x="300" y="92" textAnchor="middle" fontSize="11" fontWeight="800" fill="#1ea99c">④よけられる</text>
+      <text x="300" y="92" textAnchor="middle" fontSize="11" fontWeight="800" fill="#1ea99c">④魚がよける</text>
 
-      <path d="M 360 158 C 520 180, 680 130, 738 80" stroke="#516573" strokeWidth="2" strokeDasharray="4 3" fill="none" markerEnd="url(#arrM)" />
-      <text x="560" y="178" textAnchor="middle" fontSize="11" fontWeight="800" fill="#516573">⑤魚がゴミを食べてしまう</text>
+      <path d="M 366 158 C 470 196, 750 196, 820 76" stroke="#516573" strokeWidth="2" strokeDasharray="4 3" fill="none" markerEnd="url(#arrM)" />
+      <text x="540" y="108" textAnchor="middle" fontSize="11" fontWeight="800" fill="#516573">⑤魚がゴミを食べてしまう</text>
     </svg>
   );
 }
