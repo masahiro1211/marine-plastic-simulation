@@ -8,6 +8,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
@@ -39,6 +40,13 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
   2: "/models/fish_3.glb",
 };
 
+function queryFlagAtModuleLoad(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  const value = params.get(key);
+  return value === "" || value === "1" || value === "true";
+}
+
 useGLTF.setDecoderPath("/draco/");
 
 const ESSENTIAL_MODELS = [
@@ -49,16 +57,19 @@ const ESSENTIAL_MODELS = [
   "/models/plastic_bottle.glb",
   "/models/collector.glb",
 ] as const;
-for (const modelPath of ESSENTIAL_MODELS) {
-  useGLTF.preload(modelPath);
-}
 
 const DEFERRED_MODELS = [
   ...COLLECTOR_MODEL_PATHS.filter((path) => path !== "/models/collector.glb"),
   "/models/fish_2.glb",
   "/models/fish_3.glb",
 ] as const;
-if (typeof window !== "undefined") {
+const SKIP_MODEL_PRELOADS = queryFlagAtModuleLoad("perfNoPreload");
+if (!SKIP_MODEL_PRELOADS) {
+  for (const modelPath of ESSENTIAL_MODELS) {
+    useGLTF.preload(modelPath);
+  }
+}
+if (!SKIP_MODEL_PRELOADS && typeof window !== "undefined") {
   const idle =
     (window as unknown as { requestIdleCallback?: (callback: () => void) => void })
       .requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 1500));
@@ -84,6 +95,67 @@ const POSITION_FOLLOW_RATE = 18;
 const POSITION_SNAP_DISTANCE = 180;
 const FISH_ANIMATION_UPDATE_INTERVAL = 1 / 20;
 const FULL_RATE_ANIMATION_UPDATE_INTERVAL = 0;
+
+interface CanvasPerfOptions {
+  enabled: boolean;
+  primitiveAgents: boolean;
+  disableAgentAnimations: boolean;
+  simpleLights: boolean;
+  hideBackground: boolean;
+  hideFloor: boolean;
+  hideGrid: boolean;
+  skipModelPreloads: boolean;
+  agentLimit: number | null;
+  dpr: number | null;
+}
+
+interface CanvasPerfStats {
+  fps: number;
+  frameMs: number;
+  renderedAgents: number;
+  totalAgents: number;
+}
+
+function readCanvasPerfOptions(): CanvasPerfOptions {
+  const params = new URLSearchParams(
+    typeof window === "undefined" ? "" : window.location.search,
+  );
+  const has = (key: string) => params.has(key);
+  const flag = (key: string) => {
+    const value = params.get(key);
+    return value === "" || value === "1" || value === "true";
+  };
+  const positiveNumber = (key: string) => {
+    const value = Number(params.get(key));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  };
+  const agentLimit = positiveNumber("perfLimit") ?? positiveNumber("agentLimit");
+  const dpr = positiveNumber("perfDpr");
+  const enabled =
+    flag("perf") ||
+    has("perfPrimitive") ||
+    has("perfNoAnim") ||
+    has("perfSimpleLights") ||
+    has("perfNoBg") ||
+    has("perfNoFloor") ||
+    has("perfNoGrid") ||
+    has("perfNoPreload") ||
+    agentLimit !== null ||
+    dpr !== null;
+
+  return {
+    enabled,
+    primitiveAgents: flag("perfPrimitive"),
+    disableAgentAnimations: flag("perfNoAnim"),
+    simpleLights: flag("perfSimpleLights"),
+    hideBackground: flag("perfNoBg"),
+    hideFloor: flag("perfNoFloor"),
+    hideGrid: flag("perfNoGrid"),
+    skipModelPreloads: flag("perfNoPreload"),
+    agentLimit,
+    dpr,
+  };
+}
 
 interface AnimationRegistry {
   register: (mixer: THREE.AnimationMixer, updateInterval: number) => () => void;
@@ -130,6 +202,7 @@ function useManagedAnimations(
   animations: THREE.AnimationClip[],
   root: THREE.Object3D,
   updateInterval = FULL_RATE_ANIMATION_UPDATE_INTERVAL,
+  disabled = false,
 ) {
   const registry = useContext(AnimationRegistryContext);
   // useGLTF が返す animations は同じ glb 上で共有されるので、別 mixer から
@@ -150,9 +223,9 @@ function useManagedAnimations(
   }, [localClips, mixer, root]);
 
   useEffect(() => {
-    if (!registry || localClips.length === 0) return;
+    if (disabled || !registry || localClips.length === 0) return;
     return registry.register(mixer, updateInterval);
-  }, [localClips.length, mixer, registry, updateInterval]);
+  }, [disabled, localClips.length, mixer, registry, updateInterval]);
 
   useEffect(() => {
     return () => {
@@ -237,16 +310,28 @@ function TurnTowardVelocity({
   return <group>{children}</group>;
 }
 
-function OrcaPredator({ agent }: { agent: AgentState }) {
+function OrcaPredator({
+  agent,
+  disableAnimations = false,
+}: {
+  agent: AgentState;
+  disableAnimations?: boolean;
+}) {
   const modelPath = "/models/orca.glb";
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => {
     assertRenderableScene(scene, modelPath);
     return SkeletonUtils.clone(scene);
   }, [scene]);
-  const { actions, names } = useManagedAnimations(animations, cloned);
+  const { actions, names } = useManagedAnimations(
+    animations,
+    cloned,
+    FULL_RATE_ANIMATION_UPDATE_INTERVAL,
+    disableAnimations,
+  );
 
   useEffect(() => {
+    if (disableAnimations) return;
     const first = names[0];
     if (!first) return;
     const action = actions[first];
@@ -255,7 +340,7 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
     return () => {
       action.fadeOut(0.2);
     };
-  }, [actions, names]);
+  }, [actions, disableAnimations, names]);
 
   const chasing = agent.metadata?.mode === "chase";
   const scale = chasing ? ORCA_BASE_SCALE * 1.1 : ORCA_BASE_SCALE;
@@ -270,16 +355,28 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
 const SCOUT_YAW_OFFSET = Math.PI;
 const SCOUT_BASE_SCALE = 4;
 
-function ScoutMesh({ agent }: { agent: AgentState }) {
+function ScoutMesh({
+  agent,
+  disableAnimations = false,
+}: {
+  agent: AgentState;
+  disableAnimations?: boolean;
+}) {
   const modelPath = "/models/scout.glb";
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => {
     assertRenderableScene(scene, modelPath);
     return SkeletonUtils.clone(scene);
   }, [scene]);
-  const { actions, names } = useManagedAnimations(animations, cloned);
+  const { actions, names } = useManagedAnimations(
+    animations,
+    cloned,
+    FULL_RATE_ANIMATION_UPDATE_INTERVAL,
+    disableAnimations,
+  );
 
   useEffect(() => {
+    if (disableAnimations) return;
     const first = names[0];
     if (!first) return;
     const action = actions[first];
@@ -288,7 +385,7 @@ function ScoutMesh({ agent }: { agent: AgentState }) {
     return () => {
       action.fadeOut(0.2);
     };
-  }, [actions, names]);
+  }, [actions, disableAnimations, names]);
 
   return (
     <TurnTowardVelocity>
@@ -330,15 +427,29 @@ function collectorModelPath(isManual: boolean, carriedIds: string[]): string {
   return `/models/${prefix}_with_both.glb`;
 }
 
-function CollectorMesh({ agent, modelPath }: { agent: AgentState; modelPath: string }) {
+function CollectorMesh({
+  agent,
+  modelPath,
+  disableAnimations = false,
+}: {
+  agent: AgentState;
+  modelPath: string;
+  disableAnimations?: boolean;
+}) {
   const { scene, animations } = useGLTF(modelPath);
   const cloned = useMemo(() => {
     assertRenderableScene(scene, modelPath);
     return SkeletonUtils.clone(scene);
   }, [modelPath, scene]);
-  const { actions, names } = useManagedAnimations(animations, cloned);
+  const { actions, names } = useManagedAnimations(
+    animations,
+    cloned,
+    FULL_RATE_ANIMATION_UPDATE_INTERVAL,
+    disableAnimations,
+  );
 
   useEffect(() => {
+    if (disableAnimations) return;
     const first = names[0];
     if (!first) return;
     const action = actions[first];
@@ -347,7 +458,7 @@ function CollectorMesh({ agent, modelPath }: { agent: AgentState; modelPath: str
     return () => {
       action.fadeOut(0.2);
     };
-  }, [actions, names]);
+  }, [actions, disableAnimations, names]);
 
   return (
     <TurnTowardVelocity>
@@ -360,7 +471,13 @@ function CollectorMesh({ agent, modelPath }: { agent: AgentState; modelPath: str
 const FISH_YAW_OFFSET = Math.PI;
 const FISH_BASE_SCALE = 7.5;
 
-function FishMesh({ agent }: { agent: AgentState }) {
+function FishMesh({
+  agent,
+  disableAnimations = false,
+}: {
+  agent: AgentState;
+  disableAnimations?: boolean;
+}) {
   const speciesId = Number(agent.metadata?.species_id ?? 0);
   const modelPath = FISH_MODEL_BY_SPECIES[speciesId] ?? FISH_MODEL_BY_SPECIES[0];
   const { scene, animations } = useGLTF(modelPath);
@@ -372,9 +489,11 @@ function FishMesh({ agent }: { agent: AgentState }) {
     animations,
     cloned,
     FISH_ANIMATION_UPDATE_INTERVAL,
+    disableAnimations,
   );
 
   useEffect(() => {
+    if (disableAnimations) return;
     const first = names[0];
     if (!first) return;
     const action = actions[first];
@@ -383,7 +502,7 @@ function FishMesh({ agent }: { agent: AgentState }) {
     return () => {
       action.fadeOut(0.2);
     };
-  }, [actions, names]);
+  }, [actions, disableAnimations, names]);
 
   const scale = (agent.alive ? 1 : 0.4) * FISH_BASE_SCALE;
 
@@ -443,18 +562,72 @@ function TrashMesh({ agent, discovered }: { agent: AgentState; discovered: boole
   );
 }
 
+function PrimitiveAgentMesh({
+  agent,
+  discovered,
+}: {
+  agent: AgentState;
+  discovered: boolean;
+}) {
+  const color =
+    agent.agent_type === "predator"
+      ? "#111827"
+      : agent.agent_type === "scout"
+        ? "#38bdf8"
+        : agent.agent_type === "collector"
+          ? "#facc15"
+          : agent.agent_type === "marine_life"
+            ? agent.alive ? "#22c55e" : "#64748b"
+            : "#f97316";
+  const scale =
+    agent.agent_type === "predator"
+      ? [28, 12, 48]
+      : agent.agent_type === "trash"
+        ? [18, 8, 18]
+        : agent.agent_type === "marine_life"
+          ? [20, 10, 34]
+          : [24, 12, 24];
+
+  return (
+    <TurnTowardVelocity>
+      <mesh scale={scale as [number, number, number]}>
+        {agent.agent_type === "trash" ? (
+          <boxGeometry args={[1, 1, 1]} />
+        ) : (
+          <sphereGeometry args={[1, 16, 8]} />
+        )}
+        <meshBasicMaterial color={color} />
+      </mesh>
+      {discovered && (
+        <mesh position={[0, -6, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+          <ringGeometry args={[28, 36, 48]} />
+          <meshBasicMaterial
+            color="#ef4444"
+            transparent
+            opacity={0.9}
+            side={THREE.DoubleSide}
+            depthTest={false}
+          />
+        </mesh>
+      )}
+    </TurnTowardVelocity>
+  );
+}
+
 function AgentNodeView({
   agent,
   cx,
   cz,
   registerAgentGroup,
   discovered,
+  perfOptions,
 }: {
   agent: AgentState;
   cx: number;
   cz: number;
   registerAgentGroup: (id: string, group: THREE.Group | null) => void;
   discovered: boolean;
+  perfOptions: CanvasPerfOptions;
 }) {
   const wx = agent.x - cx;
   const wz = agent.y - cz;
@@ -474,47 +647,67 @@ function AgentNodeView({
 
   return (
     <group ref={setGroupRef} position={initialPositionRef.current}>
-      {agent.agent_type === "predator" && (
-        <ModelErrorBoundary resetKey="/models/orca.glb">
-          <Suspense fallback={null}>
-            <OrcaPredator agent={agent} />
-          </Suspense>
-        </ModelErrorBoundary>
+      {perfOptions.primitiveAgents && (
+        <PrimitiveAgentMesh agent={agent} discovered={discovered} />
       )}
-      {agent.agent_type === "scout" && (
-        <ModelErrorBoundary resetKey="/models/scout.glb">
-          <Suspense fallback={null}>
-            <ScoutMesh agent={agent} />
-          </Suspense>
-        </ModelErrorBoundary>
-      )}
-      {agent.agent_type === "collector" && (
-        <ModelErrorBoundary resetKey={collectorModelPath ?? "/models/collector.glb"}>
-          <Suspense fallback={null}>
-            <CollectorMesh agent={agent} modelPath={collectorModelPath ?? "/models/collector.glb"} />
-          </Suspense>
-        </ModelErrorBoundary>
-      )}
-      {agent.agent_type === "marine_life" && (
-        <ModelErrorBoundary
-          resetKey={
-            FISH_MODEL_BY_SPECIES[Number(agent.metadata?.species_id ?? 0)] ??
-            FISH_MODEL_BY_SPECIES[0]
-          }
-        >
-          <Suspense fallback={null}>
-            <FishMesh agent={agent} />
-          </Suspense>
-        </ModelErrorBoundary>
-      )}
-      {agent.agent_type === "trash" && (
-        <ModelErrorBoundary
-          resetKey={isCanTrash(agent.id) ? "/models/can.glb" : "/models/plastic_bottle.glb"}
-        >
-          <Suspense fallback={null}>
-            <TrashMesh agent={agent} discovered={discovered} />
-          </Suspense>
-        </ModelErrorBoundary>
+      {!perfOptions.primitiveAgents && (
+        <>
+          {agent.agent_type === "predator" && (
+            <ModelErrorBoundary resetKey="/models/orca.glb">
+              <Suspense fallback={null}>
+                <OrcaPredator
+                  agent={agent}
+                  disableAnimations={perfOptions.disableAgentAnimations}
+                />
+              </Suspense>
+            </ModelErrorBoundary>
+          )}
+          {agent.agent_type === "scout" && (
+            <ModelErrorBoundary resetKey="/models/scout.glb">
+              <Suspense fallback={null}>
+                <ScoutMesh
+                  agent={agent}
+                  disableAnimations={perfOptions.disableAgentAnimations}
+                />
+              </Suspense>
+            </ModelErrorBoundary>
+          )}
+          {agent.agent_type === "collector" && (
+            <ModelErrorBoundary resetKey={collectorModelPath ?? "/models/collector.glb"}>
+              <Suspense fallback={null}>
+                <CollectorMesh
+                  agent={agent}
+                  modelPath={collectorModelPath ?? "/models/collector.glb"}
+                  disableAnimations={perfOptions.disableAgentAnimations}
+                />
+              </Suspense>
+            </ModelErrorBoundary>
+          )}
+          {agent.agent_type === "marine_life" && (
+            <ModelErrorBoundary
+              resetKey={
+                FISH_MODEL_BY_SPECIES[Number(agent.metadata?.species_id ?? 0)] ??
+                FISH_MODEL_BY_SPECIES[0]
+              }
+            >
+              <Suspense fallback={null}>
+                <FishMesh
+                  agent={agent}
+                  disableAnimations={perfOptions.disableAgentAnimations}
+                />
+              </Suspense>
+            </ModelErrorBoundary>
+          )}
+          {agent.agent_type === "trash" && (
+            <ModelErrorBoundary
+              resetKey={isCanTrash(agent.id) ? "/models/can.glb" : "/models/plastic_bottle.glb"}
+            >
+              <Suspense fallback={null}>
+                <TrashMesh agent={agent} discovered={discovered} />
+              </Suspense>
+            </ModelErrorBoundary>
+          )}
+        </>
       )}
     </group>
   );
@@ -542,6 +735,7 @@ const AgentNode = memo(
     prev.discovered === next.discovered &&
     prev.cx === next.cx &&
     prev.cz === next.cz &&
+    prev.perfOptions === next.perfOptions &&
     modelRelevantMetadata(prev.agent) === modelRelevantMetadata(next.agent),
 );
 
@@ -558,11 +752,13 @@ function AgentsLayer({
   discoveredSet,
   cx,
   cz,
+  perfOptions,
 }: {
   agents: AgentState[];
   discoveredSet: Set<string>;
   cx: number;
   cz: number;
+  perfOptions: CanvasPerfOptions;
 }) {
   const agentGroupsRef = useRef(new Map<string, THREE.Group>());
 
@@ -574,7 +770,13 @@ function AgentsLayer({
     }
   }, []);
 
-  const visibleAgents = useMemo(() => agents, [agents]);
+  const visibleAgents = useMemo(
+    () =>
+      perfOptions.agentLimit === null
+        ? agents
+        : agents.slice(0, Math.floor(perfOptions.agentLimit)),
+    [agents, perfOptions.agentLimit],
+  );
 
   useFrame((_, delta) => {
     const alpha = 1 - Math.exp(-POSITION_FOLLOW_RATE * delta);
@@ -620,6 +822,7 @@ function AgentsLayer({
           cz={cz}
           registerAgentGroup={registerAgentGroup}
           discovered={agent.agent_type === "trash" && discoveredSet.has(agent.id)}
+          perfOptions={perfOptions}
         />
       ))}
     </>
@@ -734,6 +937,70 @@ function CameraPresetController({
   return null;
 }
 
+function PerfSampler({
+  totalAgents,
+  renderedAgents,
+  onSample,
+}: {
+  totalAgents: number;
+  renderedAgents: number;
+  onSample: (stats: CanvasPerfStats) => void;
+}) {
+  const frameCountRef = useRef(0);
+  const elapsedRef = useRef(0);
+
+  useFrame((_, delta) => {
+    frameCountRef.current += 1;
+    elapsedRef.current += delta;
+    if (elapsedRef.current < 0.5) return;
+
+    const fps = frameCountRef.current / elapsedRef.current;
+    onSample({
+      fps,
+      frameMs: 1000 / Math.max(fps, 0.001),
+      renderedAgents,
+      totalAgents,
+    });
+    frameCountRef.current = 0;
+    elapsedRef.current = 0;
+  });
+
+  return null;
+}
+
+function PerfOverlay({
+  stats,
+  options,
+}: {
+  stats: CanvasPerfStats;
+  options: CanvasPerfOptions;
+}) {
+  const activeFlags = [
+    options.primitiveAgents && "primitive",
+    options.disableAgentAnimations && "no-anim",
+    options.simpleLights && "simple-lights",
+    options.hideBackground && "no-bg",
+    options.hideFloor && "no-floor",
+    options.hideGrid && "no-grid",
+    options.skipModelPreloads && "no-preload",
+    options.agentLimit !== null && `limit:${Math.floor(options.agentLimit)}`,
+    options.dpr !== null && `dpr:${options.dpr}`,
+  ].filter(Boolean);
+
+  return (
+    <div className="absolute left-2 top-2 z-10 rounded bg-slate-950/85 px-2 py-1 font-mono text-[11px] leading-5 text-cyan-100 shadow-lg">
+      <div>fps {stats.fps.toFixed(1)}</div>
+      <div>ms {stats.frameMs.toFixed(1)}</div>
+      <div>
+        agents {stats.renderedAgents}/{stats.totalAgents}
+      </div>
+      {activeFlags.length > 0 && (
+        <div className="max-w-[220px] text-cyan-300">{activeFlags.join(" ")}</div>
+      )}
+    </div>
+  );
+}
+
 interface Canvas3DProps {
   agents: AgentState[];
   base: BaseState;
@@ -751,6 +1018,17 @@ export default function Canvas3D({
   height = 640,
   cameraPreset = "angle",
 }: Canvas3DProps) {
+  const perfOptions = useMemo(readCanvasPerfOptions, []);
+  const renderedAgentCount =
+    perfOptions.agentLimit === null
+      ? agents.length
+      : Math.min(agents.length, Math.floor(perfOptions.agentLimit));
+  const [perfStats, setPerfStats] = useState<CanvasPerfStats>({
+    fps: 0,
+    frameMs: 0,
+    renderedAgents: renderedAgentCount,
+    totalAgents: agents.length,
+  });
   const discoveredSet = useMemo(
     () => new Set(discoveredTrashIds ?? []),
     [discoveredTrashIds]
@@ -776,7 +1054,7 @@ export default function Canvas3D({
     >
       <ThreeCanvas
         camera={{ position: [0, defaultDist * 0.85, defaultDist * 0.7], fov: 45, near: 1, far: sceneSize * 20 }}
-        dpr={[1, 1.25]}
+        dpr={perfOptions.dpr ?? [1, 1.25]}
         shadows={false}
         gl={{ antialias: false, powerPreference: "high-performance", alpha: false, stencil: false, depth: true }}
         onCreated={({ gl }) => {
@@ -790,26 +1068,41 @@ export default function Canvas3D({
             height={height}
             margin={margin}
           />
-          <Suspense fallback={<color attach="background" args={["#0c4a72"]} />}>
-            <SceneBackground />
-          </Suspense>
-          <ambientLight intensity={1.1} />
-          <hemisphereLight args={["#bae6fd", "#0c2740", 0.8]} />
-          <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
-          <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
+          {perfOptions.hideBackground ? (
+            <color attach="background" args={["#0c4a72"]} />
+          ) : (
+            <Suspense fallback={<color attach="background" args={["#0c4a72"]} />}>
+              <SceneBackground />
+            </Suspense>
+          )}
+          {perfOptions.simpleLights ? (
+            <>
+              <ambientLight intensity={1.8} />
+              <hemisphereLight args={["#bae6fd", "#0c2740", 1.0]} />
+            </>
+          ) : (
+            <>
+              <ambientLight intensity={1.1} />
+              <hemisphereLight args={["#bae6fd", "#0c2740", 0.8]} />
+              <directionalLight position={[200, 400, 200]} intensity={1.6} color="#ffffff" />
+              <directionalLight position={[-200, 200, -100]} intensity={0.7} color="#5eead4" />
+            </>
+          )}
 
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-            <planeGeometry args={[width, height]} />
-            <meshStandardMaterial
-              color="#1a5e8a"
-              metalness={0.15}
-              roughness={0.7}
-              transparent
-              opacity={0.35}
-            />
-          </mesh>
+          {!perfOptions.hideFloor && (
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+              <planeGeometry args={[width, height]} />
+              <meshStandardMaterial
+                color="#1a5e8a"
+                metalness={0.15}
+                roughness={0.7}
+                transparent
+                opacity={0.35}
+              />
+            </mesh>
+          )}
 
-          <FieldGrid width={width} height={height} divisions={20} />
+          {!perfOptions.hideGrid && <FieldGrid width={width} height={height} divisions={20} />}
 
           {base && (
             <group position={[base.x - cx, 0, base.y - cz]}>
@@ -833,10 +1126,19 @@ export default function Canvas3D({
             discoveredSet={discoveredSet}
             cx={cx}
             cz={cz}
+            perfOptions={perfOptions}
           />
+          {perfOptions.enabled && (
+            <PerfSampler
+              totalAgents={agents.length}
+              renderedAgents={renderedAgentCount}
+              onSample={setPerfStats}
+            />
+          )}
         </AnimationMixerRegistry>
 
       </ThreeCanvas>
+      {perfOptions.enabled && <PerfOverlay stats={perfStats} options={perfOptions} />}
     </div>
   );
 }
