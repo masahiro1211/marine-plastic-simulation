@@ -57,6 +57,7 @@ export default function App() {
     reset,
     resetViaApi,
     manualMove,
+    manualControlIntent,
   } = useSimulation();
 
   const keysPressed = useRef(new Set<string>());
@@ -428,6 +429,9 @@ export default function App() {
                   width={config.width}
                   height={config.height}
                   cameraPreset={cameraPreset}
+                  manualControlIntent={manualControlIntent}
+                  tickIntervalMs={config.tick_interval_ms}
+                  collectorSpeed={config.collector_speed}
                 />
               </Suspense>
             ) : (

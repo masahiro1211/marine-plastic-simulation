@@ -4,6 +4,7 @@ import type {
   AgentState,
   BaseState,
   HistoryEntry,
+  ManualControlIntent,
   ScoreState,
   SimulationConfig,
   SimulationPhase,
@@ -36,6 +37,7 @@ const API_URL = trimTrailingSlash(
 const WS_URL =
   env.VITE_WS_URL ?? env.REACT_APP_WS_URL ?? websocketUrlFromApiUrl(API_URL);
 const LIVE_SNAPSHOT_STATE_INTERVAL_MS = 100;
+const MANUAL_INPUT_FAST_SNAPSHOT_WINDOW_MS = 250;
 
 const DEFAULT_STATS: SimulationStats = {
   scouts: 0,
@@ -56,6 +58,12 @@ const DEFAULT_SCORE: ScoreState = {
 };
 
 const DEFAULT_BASE: BaseState = { x: 480, y: 604, radius: 48 };
+const DEFAULT_MANUAL_CONTROL_INTENT: ManualControlIntent = {
+  dx: 0,
+  dy: 0,
+  updatedAt: 0,
+  active: false,
+};
 
 function shallowObjectEqual<T extends Record<string, unknown>>(left: T, right: T): boolean {
   const leftKeys = Object.keys(left);
@@ -124,6 +132,7 @@ interface SimulationState {
   resetViaApi: (nextConfig: SimulationConfig) => Promise<void>;
   fetchStatsHistory: () => Promise<HistoryEntry[]>;
   manualMove: (dx: number, dy: number) => void;
+  manualControlIntent: ManualControlIntent;
 }
 
 /**
@@ -141,10 +150,14 @@ export default function useSimulation(): SimulationState {
   const [tick, setTick] = useState<number>(0);
   const [phase, setPhase] = useState<SimulationPhase>("idle");
   const [connected, setConnected] = useState<boolean>(false);
+  const [manualControlIntent, setManualControlIntent] = useState<ManualControlIntent>(
+    DEFAULT_MANUAL_CONTROL_INTENT,
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const latestSnapshotRef = useRef<Partial<SimulationSnapshot> | null>(null);
   const snapshotTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const lastSnapshotAppliedAtRef = useRef<number>(0);
+  const lastManualMoveSentAtRef = useRef<number>(0);
 
   /**
    * Apply a partial snapshot payload to local React state.
@@ -212,6 +225,14 @@ export default function useSimulation(): SimulationState {
 
       latestSnapshotRef.current = data;
       const now = performance.now();
+      if (now - lastManualMoveSentAtRef.current < MANUAL_INPUT_FAST_SNAPSHOT_WINDOW_MS) {
+        latestSnapshotRef.current = null;
+        clearSnapshotTimer();
+        lastSnapshotAppliedAtRef.current = now;
+        applySnapshot(data);
+        return;
+      }
+
       const elapsed = now - lastSnapshotAppliedAtRef.current;
 
       if (elapsed >= LIVE_SNAPSHOT_STATE_INTERVAL_MS) {
@@ -291,7 +312,16 @@ export default function useSimulation(): SimulationState {
   const stop = useCallback(() => sendAction("stop"), [sendAction]);
 
   const manualMove = useCallback(
-    (dx: number, dy: number) => sendAction("manual_move", { dx, dy }),
+    (dx: number, dy: number) => {
+      lastManualMoveSentAtRef.current = performance.now();
+      setManualControlIntent({
+        dx,
+        dy,
+        updatedAt: lastManualMoveSentAtRef.current,
+        active: dx !== 0 || dy !== 0,
+      });
+      sendAction("manual_move", { dx, dy });
+    },
     [sendAction]
   );
 
@@ -363,5 +393,6 @@ export default function useSimulation(): SimulationState {
     resetViaApi,
     fetchStatsHistory,
     manualMove,
+    manualControlIntent,
   };
 }

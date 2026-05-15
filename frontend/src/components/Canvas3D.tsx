@@ -15,7 +15,7 @@ import { Canvas as ThreeCanvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import * as SkeletonUtils from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { AgentState, BaseState } from "../types";
+import type { AgentState, BaseState, ManualControlIntent } from "../types";
 
 export type CameraPreset = "angle" | "top";
 
@@ -94,6 +94,8 @@ const ORCA_BASE_SCALE = 4.5;
 const POSITION_SNAP_DISTANCE = 180;
 const SNAPSHOT_INTERPOLATION_DELAY_MS = 120;
 const SNAPSHOT_SAMPLE_MAX_AGE_MS = 1000;
+const MANUAL_VISUAL_CORRECTION_RATE = 4;
+const MANUAL_VISUAL_IDLE_CORRECTION_RATE = 24;
 const FISH_ANIMATION_UPDATE_INTERVAL = 1 / 20;
 const FULL_RATE_ANIMATION_UPDATE_INTERVAL = 0;
 
@@ -107,6 +109,12 @@ interface InterpolatedMotion {
   y: number;
   vx: number;
   vy: number;
+}
+
+interface ManualVisualState {
+  x: number;
+  y: number;
+  initialized: boolean;
 }
 
 interface CanvasPerfOptions {
@@ -823,21 +831,108 @@ function shouldResetMotionSamples(
   return false;
 }
 
+function isManualAgent(agent: AgentState): boolean {
+  return agent.agent_type === "collector" && agent.metadata?.is_manual === true;
+}
+
+function resolveManualVisualMotion({
+  agent,
+  intent,
+  visualState,
+  delta,
+  tickIntervalMs,
+  collectorSpeed,
+  width,
+  height,
+}: {
+  agent: AgentState;
+  intent?: ManualControlIntent;
+  visualState: ManualVisualState;
+  delta: number;
+  tickIntervalMs: number;
+  collectorSpeed: number;
+  width: number;
+  height: number;
+}): InterpolatedMotion {
+  if (!visualState.initialized) {
+    visualState.x = agent.x;
+    visualState.y = agent.y;
+    visualState.initialized = true;
+  }
+
+  const dt = Math.min(Math.max(delta, 0), 0.1);
+  const tickSeconds = Math.max(tickIntervalMs, 1) / 1000;
+  const snapshotSpeedPerSecond = Math.hypot(agent.vx, agent.vy) / tickSeconds;
+  const fallbackSpeedPerSecond = collectorSpeed / tickSeconds;
+  const speedPerSecond =
+    snapshotSpeedPerSecond > 0.001 ? snapshotSpeedPerSecond : fallbackSpeedPerSecond;
+
+  const inputDx = intent?.dx ?? 0;
+  const inputDy = intent?.dy ?? 0;
+  const inputNorm = Math.hypot(inputDx, inputDy);
+  const inputActive = Boolean(intent?.active) && inputNorm > 0.001;
+  let visualVx = agent.vx;
+  let visualVy = agent.vy;
+
+  if (inputActive) {
+    const nx = inputDx / inputNorm;
+    const ny = inputDy / inputNorm;
+    visualState.x = Math.min(Math.max(visualState.x + nx * speedPerSecond * dt, 0), width);
+    visualState.y = Math.min(Math.max(visualState.y + ny * speedPerSecond * dt, 0), height);
+    visualVx = nx * speedPerSecond * tickSeconds;
+    visualVy = ny * speedPerSecond * tickSeconds;
+  }
+
+  const dx = agent.x - visualState.x;
+  const dy = agent.y - visualState.y;
+  const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
+  if (dx * dx + dy * dy > snapDistanceSq) {
+    visualState.x = agent.x;
+    visualState.y = agent.y;
+    return { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy };
+  }
+
+  const rate = inputActive ? MANUAL_VISUAL_CORRECTION_RATE : MANUAL_VISUAL_IDLE_CORRECTION_RATE;
+  const alpha = 1 - Math.exp(-rate * dt);
+  visualState.x += dx * alpha;
+  visualState.y += dy * alpha;
+  visualState.x = Math.min(Math.max(visualState.x, 0), width);
+  visualState.y = Math.min(Math.max(visualState.y, 0), height);
+
+  if (!inputActive) {
+    visualVx = agent.vx + dx * alpha;
+    visualVy = agent.vy + dy * alpha;
+  }
+
+  return { x: visualState.x, y: visualState.y, vx: visualVx, vy: visualVy };
+}
+
 function AgentsLayer({
   agents,
   discoveredSet,
   cx,
   cz,
   perfOptions,
+  manualControlIntent,
+  tickIntervalMs,
+  collectorSpeed,
+  width,
+  height,
 }: {
   agents: AgentState[];
   discoveredSet: Set<string>;
   cx: number;
   cz: number;
   perfOptions: CanvasPerfOptions;
+  manualControlIntent?: ManualControlIntent;
+  tickIntervalMs: number;
+  collectorSpeed: number;
+  width: number;
+  height: number;
 }) {
   const agentGroupsRef = useRef(new Map<string, THREE.Group>());
   const snapshotSamplesRef = useRef<AgentSnapshotSample[]>([]);
+  const manualVisualStatesRef = useRef(new Map<string, ManualVisualState>());
 
   const registerAgentGroup = useCallback((id: string, group: THREE.Group | null) => {
     if (group) {
@@ -873,9 +968,16 @@ function AgentsLayer({
     ) {
       samples.shift();
     }
+
+    const visibleIds = new Set(visibleAgents.map((agent) => agent.id));
+    for (const id of manualVisualStatesRef.current.keys()) {
+      if (!visibleIds.has(id)) {
+        manualVisualStatesRef.current.delete(id);
+      }
+    }
   }, [visibleAgents]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const snapDistanceSq = POSITION_SNAP_DISTANCE * POSITION_SNAP_DISTANCE;
     const renderTime = performance.now() - SNAPSHOT_INTERPOLATION_DELAY_MS;
     const samples = snapshotSamplesRef.current;
@@ -884,9 +986,28 @@ function AgentsLayer({
       const group = agentGroupsRef.current.get(agent.id);
       if (!group) continue;
 
-      const motion = perfOptions.disableInterpolation
-        ? { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy }
-        : resolveInterpolatedMotion(agent, samples, renderTime);
+      let motion: InterpolatedMotion;
+      if (isManualAgent(agent)) {
+        let visualState = manualVisualStatesRef.current.get(agent.id);
+        if (!visualState) {
+          visualState = { x: agent.x, y: agent.y, initialized: false };
+          manualVisualStatesRef.current.set(agent.id, visualState);
+        }
+        motion = resolveManualVisualMotion({
+          agent,
+          intent: manualControlIntent,
+          visualState,
+          delta,
+          tickIntervalMs,
+          collectorSpeed,
+          width,
+          height,
+        });
+      } else {
+        motion = perfOptions.disableInterpolation
+          ? { x: agent.x, y: agent.y, vx: agent.vx, vy: agent.vy }
+          : resolveInterpolatedMotion(agent, samples, renderTime);
+      }
       const wx = motion.x - cx;
       const wz = motion.y - cz;
       const y = agent.agent_type === "predator" ? 14 : 8;
@@ -1108,6 +1229,9 @@ interface Canvas3DProps {
   width?: number;
   height?: number;
   cameraPreset?: CameraPreset;
+  manualControlIntent?: ManualControlIntent;
+  tickIntervalMs?: number;
+  collectorSpeed?: number;
 }
 
 export default function Canvas3D({
@@ -1117,6 +1241,9 @@ export default function Canvas3D({
   width = 960,
   height = 640,
   cameraPreset = "angle",
+  manualControlIntent,
+  tickIntervalMs = 50,
+  collectorSpeed = 3.6,
 }: Canvas3DProps) {
   const perfOptions = useMemo(readCanvasPerfOptions, []);
   const renderedAgentCount =
@@ -1227,6 +1354,11 @@ export default function Canvas3D({
             cx={cx}
             cz={cz}
             perfOptions={perfOptions}
+            manualControlIntent={manualControlIntent}
+            tickIntervalMs={tickIntervalMs}
+            collectorSpeed={collectorSpeed}
+            width={width}
+            height={height}
           />
           {perfOptions.enabled && (
             <PerfSampler

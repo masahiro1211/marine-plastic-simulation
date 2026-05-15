@@ -24,7 +24,7 @@ const PHASE_TONE: Record<SimulationPhase, string> = {
 };
 
 const RANK_TIERS = ["ヤドカリ", "クマノミ", "ウミガメ", "イルカ", "シャチ"];
-const CLEAR_SCORE = 2000;
+const CLEAR_SCORE = 10000;
 const UPGRADE_SCORE = 1000;
 const RANK_STEP = CLEAR_SCORE / RANK_TIERS.length;
 
@@ -202,7 +202,7 @@ export default function StatsPanel({
         {/* Score legend */}
         <div className="flex gap-3 mt-3 pt-3 border-t border-[#eef4f6] text-[11px] text-[#5d7a85]">
           <div>
-            <span className="text-[#1a9a7e] font-bold">+12</span>
+            <span className="text-[#1a9a7e] font-bold">+100</span>
             <span className="ml-1">回収</span>
           </div>
           <div>
