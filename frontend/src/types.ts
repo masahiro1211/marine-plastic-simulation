@@ -146,6 +146,14 @@ export interface AgentState {
   metadata: Record<string, unknown>;
 }
 
+/** Latest manual robot input intent emitted by keyboard or gamepad controls. */
+export interface ManualControlIntent {
+  dx: number;
+  dy: number;
+  updatedAt: number;
+  active: boolean;
+}
+
 /** Full snapshot payload returned by the backend. */
 export interface SimulationSnapshot {
   tick: number;
