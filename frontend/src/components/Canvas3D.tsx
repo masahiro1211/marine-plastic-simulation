@@ -33,8 +33,10 @@ const FISH_MODEL_BY_SPECIES: Record<number, string> = {
   2: "/models/fish_3.glb",
 };
 
-const CAN_SCALE = 140;
-const BOTTLE_SCALE = 70;
+// Trash GLBs are already authored close to scene scale; keep these small so
+// trash stays visually comparable to the other agents.
+const CAN_SCALE = 18;
+const BOTTLE_SCALE = 18;
 
 // モデルの forward 方向に応じてヨーを補正する。
 // Blender の +Y forward でエクスポートしている場合は 0 のまま。
@@ -114,7 +116,7 @@ function OrcaPredator({ agent }: { agent: AgentState }) {
 }
 
 const SCOUT_YAW_OFFSET = Math.PI;
-const SCOUT_BASE_SCALE = 4;
+const SCOUT_BASE_SCALE = 3.2;
 
 function ScoutMesh({ agent }: { agent: AgentState }) {
   const { scene, animations } = useGLTF("/models/scout.glb");

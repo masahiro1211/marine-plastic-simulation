@@ -39,6 +39,8 @@ class MarineLife(BaseAgent):
         self.contact_count = 0
         self.ate_trash_count = 0
         self.panic: bool = False
+        self._was_panicking: bool = False
+        self._panic_burst_ticks: int = 0
 
     def base_metadata(self) -> dict:
         """Return metadata including species identifier for the renderer.
@@ -82,10 +84,16 @@ class MarineLife(BaseAgent):
         threats = nearby_robots + nearby_predators
         if threats:
             self.status = "evading"
+            predator_ids = {id(p) for p in nearby_predators}
             dx, dy = 0.0, 0.0
             for threat in threats:
                 dist = max(self.distance_to(threat), 1.0)
-                w = 1.0 / dist
+                # Predators inside the standoff range get a squared repulsion
+                # so the escape force spikes sharply before contact.
+                if id(threat) in predator_ids and dist < cfg.predator_preferred_distance:
+                    w = (cfg.predator_preferred_distance / dist) ** 2
+                else:
+                    w = 1.0 / dist
                 dx += (self.x - threat.x) * w
                 dy += (self.y - threat.y) * w
             if self.panic and (dx != 0.0 or dy != 0.0):
@@ -120,16 +128,46 @@ class MarineLife(BaseAgent):
                 (desired[1] if desired else 0.0) + habitat[1],
             )
 
+        panic_sep = self._panic_separation_force(world, cfg)
+        if panic_sep[0] != 0.0 or panic_sep[1] != 0.0:
+            desired = (
+                (desired[0] if desired else 0.0) + panic_sep[0],
+                (desired[1] if desired else 0.0) + panic_sep[1],
+            )
+
         if self.panic:
-            self.speed = self.base_speed * cfg.panic_speed_factor
+            # While a predator stays inside the close-panic radius, keep the
+            # startle burst topped up so the fish maintains peak escape speed
+            # until it actually puts distance between itself and the threat.
+            danger_close = any(
+                self.distance_to(p) < cfg.predator_panic_radius for p in nearby_predators
+            )
+            if not self._was_panicking or danger_close:
+                self._panic_burst_ticks = cfg.panic_burst_ticks
+            burst = 1.0
+            if self._panic_burst_ticks > 0:
+                progress = self._panic_burst_ticks / max(cfg.panic_burst_ticks, 1)
+                burst = 1.0 + (cfg.panic_burst_factor - 1.0) * progress
+                self._panic_burst_ticks -= 1
+            self.speed = self.base_speed * cfg.panic_speed_factor * burst
         else:
-            if self.status == "evading":
+            self._panic_burst_ticks = 0
+            if nearby_predators:
+                min_pd = min(self.distance_to(p) for p in nearby_predators)
+                factor = self._predator_threat_factor(min_pd, cfg)
+                scale = cfg.speed_evade_factor + factor * (
+                    cfg.panic_speed_factor - cfg.speed_evade_factor
+                )
+                target_speed = self.base_speed * scale
+            elif self.status == "evading":
                 target_speed = self.base_speed * cfg.speed_evade_factor
             elif self.status == "spacing":
                 target_speed = self.base_speed * cfg.speed_zor_factor
             else:
                 target_speed = self.base_speed
             self.speed += (target_speed - self.speed) * cfg.speed_adapt_rate
+
+        self._was_panicking = self.panic
 
         self._advance_heading(desired, cfg)
 
@@ -138,6 +176,29 @@ class MarineLife(BaseAgent):
         self.move(cfg.width, cfg.height)
 
         self._eat_nearby_trash(world, cfg)
+
+    def _predator_threat_factor(self, min_predator_dist: float, cfg) -> float:
+        """Map the nearest-predator distance to a 0.0-1.0 threat level.
+
+        Returns 0.0 at ``marine_life_avoid_radius`` (alert zone edge) and
+        ramps linearly to 1.0 at ``predator_panic_radius``, giving the fish
+        a continuous speed boost as a predator closes in.
+
+        Args:
+            min_predator_dist: Distance to the closest predator.
+            cfg: Current simulation configuration.
+
+        Returns:
+            Threat factor in the inclusive range [0.0, 1.0].
+        """
+        if min_predator_dist >= cfg.marine_life_avoid_radius:
+            return 0.0
+        if min_predator_dist <= cfg.predator_panic_radius:
+            return 1.0
+        span = cfg.marine_life_avoid_radius - cfg.predator_panic_radius
+        if span <= 0:
+            return 1.0
+        return (cfg.marine_life_avoid_radius - min_predator_dist) / span
 
     def _wall_repulsion_force(self, cfg) -> tuple[float, float]:
         """Compute a steering force that pushes away from world boundaries.
@@ -223,6 +284,44 @@ class MarineLife(BaseAgent):
             dy / norm * cfg.inter_species_repulsion_weight,
         )
 
+    def _panic_separation_force(self, world, cfg) -> tuple[float, float]:
+        """Compute strong mutual repulsion between fish during panic.
+
+        While panicking, fish actively shove away from nearby neighbours
+        regardless of species, turning the school's loss of cohesion into
+        an explosive flash expansion (Major 1978).  Returned as a
+        normalised vector so the split force is predictable and blends
+        against the threat-avoidance steering by a fixed weight.
+
+        Args:
+            world: Active simulation runtime.
+            cfg: Current simulation configuration.
+
+        Returns:
+            Repulsion steering vector away from nearby fish, or (0.0, 0.0)
+            when calm or when no neighbours are in range.
+        """
+        if not self.panic or cfg.panic_separation_weight <= 0.0:
+            return (0.0, 0.0)
+        neighbours = [
+            life
+            for life in world.find_marine_life_near(self.x, self.y, cfg.flock_zoo_radius)
+            if life is not self
+        ]
+        if not neighbours:
+            return (0.0, 0.0)
+        dx, dy = 0.0, 0.0
+        for other in neighbours:
+            dist = max(self.distance_to(other), 1.0)
+            w = 1.0 / dist
+            dx += (self.x - other.x) * w
+            dy += (self.y - other.y) * w
+        norm = math.hypot(dx, dy) or 1.0
+        return (
+            dx / norm * cfg.panic_separation_weight,
+            dy / norm * cfg.panic_separation_weight,
+        )
+
     def compute_panic(self, world, cfg, prev_panic_map: dict[str, bool]) -> bool:
         """Compute the panic state for this tick.
 
@@ -248,6 +347,10 @@ class MarineLife(BaseAgent):
         ):
             if self.distance_to(pred) < cfg.predator_panic_radius:
                 return True
+        if self.panic and world.find_predators_near(
+            self.x, self.y, cfg.predator_sensor_radius
+        ):
+            return True
         for n in world.find_marine_life_near(self.x, self.y, cfg.panic_contagion_radius):
             if n is self or n.species_id != self.species_id:
                 continue
