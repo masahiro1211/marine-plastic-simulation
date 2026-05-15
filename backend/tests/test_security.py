@@ -28,24 +28,25 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertTrue(is_allowed_origin(None))
         self.assertFalse(is_allowed_origin("https://attacker.example"))
 
-    def test_origin_allowlist_accepts_configured_vercel_preview_wildcards(self) -> None:
+    def test_origin_allowlist_accepts_configured_preview_wildcards(self) -> None:
         with patch.dict(
             "os.environ",
             {
                 "ALLOWED_ORIGINS": (
                     "https://marine-plastic-simulation.vercel.app,"
-                    "https://*.vercel.app"
+                    "https://marine-plastic-simulation-*.vercel.app"
                 )
             },
         ):
-            preview_origin = (
-                "https://marine-plastic-simulatio-git-e7725c-"
-                "masahiros-projects-4d4259d4.vercel.app"
-            )
             self.assertTrue(is_allowed_origin("https://marine-plastic-simulation.vercel.app"))
-            self.assertTrue(is_allowed_origin(preview_origin))
-            self.assertFalse(is_allowed_origin("https://attacker.example"))
-            self.assertRegex(preview_origin, allowed_origin_regex() or "")
+            self.assertTrue(
+                is_allowed_origin("https://marine-plastic-simulation-git-fix-demo.vercel.app")
+            )
+            self.assertFalse(is_allowed_origin("https://other-project.vercel.app"))
+            self.assertRegex(
+                "https://marine-plastic-simulation-git-fix-demo.vercel.app",
+                allowed_origin_regex() or "",
+            )
 
     def test_security_defaults_are_not_wildcards(self) -> None:
         self.assertNotIn("*", allowed_origins())
