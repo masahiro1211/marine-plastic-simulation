@@ -4,6 +4,7 @@ import type {
   AgentState,
   BaseState,
   HistoryEntry,
+  ManualControlIntent,
   ScoreState,
   SimulationConfig,
   SimulationPhase,
@@ -57,6 +58,12 @@ const DEFAULT_SCORE: ScoreState = {
 };
 
 const DEFAULT_BASE: BaseState = { x: 480, y: 604, radius: 48 };
+const DEFAULT_MANUAL_CONTROL_INTENT: ManualControlIntent = {
+  dx: 0,
+  dy: 0,
+  updatedAt: 0,
+  active: false,
+};
 
 function shallowObjectEqual<T extends Record<string, unknown>>(left: T, right: T): boolean {
   const leftKeys = Object.keys(left);
@@ -125,6 +132,7 @@ interface SimulationState {
   resetViaApi: (nextConfig: SimulationConfig) => Promise<void>;
   fetchStatsHistory: () => Promise<HistoryEntry[]>;
   manualMove: (dx: number, dy: number) => void;
+  manualControlIntent: ManualControlIntent;
 }
 
 /**
@@ -142,6 +150,9 @@ export default function useSimulation(): SimulationState {
   const [tick, setTick] = useState<number>(0);
   const [phase, setPhase] = useState<SimulationPhase>("idle");
   const [connected, setConnected] = useState<boolean>(false);
+  const [manualControlIntent, setManualControlIntent] = useState<ManualControlIntent>(
+    DEFAULT_MANUAL_CONTROL_INTENT,
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const latestSnapshotRef = useRef<Partial<SimulationSnapshot> | null>(null);
   const snapshotTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
@@ -303,6 +314,12 @@ export default function useSimulation(): SimulationState {
   const manualMove = useCallback(
     (dx: number, dy: number) => {
       lastManualMoveSentAtRef.current = performance.now();
+      setManualControlIntent({
+        dx,
+        dy,
+        updatedAt: lastManualMoveSentAtRef.current,
+        active: dx !== 0 || dy !== 0,
+      });
       sendAction("manual_move", { dx, dy });
     },
     [sendAction]
@@ -376,5 +393,6 @@ export default function useSimulation(): SimulationState {
     resetViaApi,
     fetchStatsHistory,
     manualMove,
+    manualControlIntent,
   };
 }
