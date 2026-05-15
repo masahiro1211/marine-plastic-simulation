@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import fnmatch
 import os
+import re
 
 DEFAULT_ALLOWED_ORIGINS = (
     "http://localhost:3000",
@@ -26,8 +28,30 @@ def _csv_env(name: str, default: tuple[str, ...]) -> list[str]:
 
 
 def allowed_origins() -> list[str]:
-    """Return browser origins allowed to call REST and WebSocket endpoints."""
-    return _csv_env("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+    """Return exact browser origins allowed to call REST and WebSocket endpoints."""
+    return [
+        origin
+        for origin in _csv_env("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+        if "*" not in origin
+    ]
+
+
+def allowed_origin_patterns() -> list[str]:
+    """Return wildcard browser origin patterns allowed for preview deployments."""
+    return [
+        origin
+        for origin in _csv_env("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
+        if "*" in origin and origin != "*"
+    ]
+
+
+def allowed_origin_regex() -> str | None:
+    """Return a CORS regex built from wildcard origin patterns, if configured."""
+    patterns = allowed_origin_patterns()
+    if not patterns:
+        return None
+    regexes = [re.escape(pattern).replace(r"\*", ".*") for pattern in patterns]
+    return r"^(?:" + "|".join(regexes) + r")$"
 
 
 def allowed_hosts() -> list[str]:
@@ -39,4 +63,7 @@ def is_allowed_origin(origin: str | None) -> bool:
     """Return whether an Origin header is allowed for browser clients."""
     if origin is None:
         return True
-    return origin in allowed_origins()
+    return origin in allowed_origins() or any(
+        fnmatch.fnmatchcase(origin, pattern)
+        for pattern in allowed_origin_patterns()
+    )
