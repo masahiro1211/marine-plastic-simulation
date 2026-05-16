@@ -30,11 +30,55 @@ function websocketUrlFromApiUrl(apiUrl: string): string {
   }
 }
 
+function randomSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function currentSessionId(): string {
+  if (typeof window === "undefined") return "default";
+
+  const urlSession = new URLSearchParams(window.location.search).get("session");
+  if (urlSession?.trim()) return urlSession.trim();
+
+  const key = "marine-plastic-simulation-session";
+  const next = randomSessionId();
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (stored) return stored;
+    window.localStorage.setItem(key, next);
+  } catch {
+    // Storage can be unavailable in strict privacy modes; a per-load session is
+    // still safer than sharing all clients through the default backend engine.
+  }
+  return next;
+}
+
+function withSession(url: string, session: string): string {
+  const next = new URL(url);
+  next.searchParams.set("session", session);
+  return next.toString();
+}
+
 const API_URL = trimTrailingSlash(
   env.VITE_API_URL ?? env.REACT_APP_API_URL ?? "http://localhost:8000"
 );
 const WS_URL =
   env.VITE_WS_URL ?? env.REACT_APP_WS_URL ?? websocketUrlFromApiUrl(API_URL);
+const SESSION_ID = currentSessionId();
+const SESSION_QUERY = `session=${encodeURIComponent(SESSION_ID)}`;
+
+function apiUrl(path: string): string {
+  const separator = path.includes("?") ? "&" : "?";
+  return `${API_URL}${path}${separator}${SESSION_QUERY}`;
+}
+
+function websocketUrl(): string {
+  return withSession(WS_URL, SESSION_ID);
+}
+
 const LIVE_SNAPSHOT_STATE_INTERVAL_MS = 100;
 
 const DEFAULT_STATS: SimulationStats = {
@@ -233,7 +277,7 @@ export default function useSimulation(): SimulationState {
    * Open the simulation WebSocket and start receiving tick snapshots.
    */
   const connect = useCallback(() => {
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(websocketUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -303,7 +347,7 @@ export default function useSimulation(): SimulationState {
    */
   const resetViaApi = useCallback(
     async (nextConfig: SimulationConfig) => {
-      const response = await fetch(`${API_URL}/api/config`, {
+      const response = await fetch(apiUrl("/api/config"), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(nextConfig),
@@ -311,7 +355,7 @@ export default function useSimulation(): SimulationState {
       const result = (await response.json()) as { config?: SimulationConfig };
       setConfig(result.config ?? DEFAULT_SIMULATION_CONFIG);
 
-      const snapshotResponse = await fetch(`${API_URL}/api/simulation/snapshot`);
+      const snapshotResponse = await fetch(apiUrl("/api/simulation/snapshot"));
       scheduleSnapshot((await snapshotResponse.json()) as SimulationSnapshot, true);
     },
     [scheduleSnapshot]
@@ -323,14 +367,14 @@ export default function useSimulation(): SimulationState {
    * @returns Historical entries from the backend.
    */
   const fetchStatsHistory = useCallback(async (): Promise<HistoryEntry[]> => {
-    const response = await fetch(`${API_URL}/api/stats/history`);
+    const response = await fetch(apiUrl("/api/stats/history"));
     return (await response.json()) as HistoryEntry[];
   }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    void fetch(`${API_URL}/api/simulation/snapshot`)
+    void fetch(apiUrl("/api/simulation/snapshot"))
       .then((response) => response.json() as Promise<SimulationSnapshot>)
       .then((data) => {
         if (mounted) {
