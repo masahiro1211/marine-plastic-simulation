@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
-from app.dependencies import get_engine
+from app.dependencies import get_engine, normalize_session_id
 from app.models.schemas import SimulationConfig
 from app.security import is_allowed_origin
 
@@ -16,6 +16,34 @@ router = APIRouter(tags=["websocket"])
 
 
 MAX_CONTROL_MESSAGE_BYTES = 8192
+_tick_owners: dict[str, object] = {}
+_connection_counts: dict[str, int] = {}
+
+
+def _add_connection(session_id: str) -> None:
+    _connection_counts[session_id] = _connection_counts.get(session_id, 0) + 1
+
+
+def _remove_connection(session_id: str) -> int:
+    remaining = max(_connection_counts.get(session_id, 0) - 1, 0)
+    if remaining:
+        _connection_counts[session_id] = remaining
+    else:
+        _connection_counts.pop(session_id, None)
+    return remaining
+
+
+def _claim_tick_owner(session_id: str, token: object) -> bool:
+    owner = _tick_owners.get(session_id)
+    if owner is None:
+        _tick_owners[session_id] = token
+        return True
+    return owner is token
+
+
+def _release_tick_owner(session_id: str, token: object) -> None:
+    if _tick_owners.get(session_id) is token:
+        _tick_owners.pop(session_id, None)
 
 
 def _bounded_float(value: Any, *, default: float, minimum: float, maximum: float) -> float:
@@ -84,11 +112,15 @@ async def simulation_ws(websocket: WebSocket):
         await websocket.close(code=1008)
         return
 
-    engine = get_engine()
+    session_id = normalize_session_id(websocket.query_params.get("session"))
+    engine = get_engine(session_id)
+    connection_token = object()
     await websocket.accept()
+    _add_connection(session_id)
     loop = asyncio.get_running_loop()
     receive_task = asyncio.create_task(websocket.receive_text())
     next_tick_at = loop.time()
+    disconnected = False
     try:
         while True:
             timeout = max(0.0, next_tick_at - loop.time())
@@ -112,7 +144,8 @@ async def simulation_ws(websocket: WebSocket):
             if now < next_tick_at:
                 continue
 
-            if engine.running:
+            should_tick = _claim_tick_owner(session_id, connection_token)
+            if should_tick and engine.running:
                 engine.step()
             await websocket.send_json(engine.get_snapshot())
             if engine.phase == "completed" and not engine.running:
@@ -121,7 +154,11 @@ async def simulation_ws(websocket: WebSocket):
             interval_seconds = max(engine.config.tick_interval_ms / 1000, 0.001)
             next_tick_at = now + interval_seconds
     except WebSocketDisconnect:
-        engine.stop()
+        disconnected = True
     finally:
+        _release_tick_owner(session_id, connection_token)
+        remaining_connections = _remove_connection(session_id)
+        if disconnected and remaining_connections == 0:
+            engine.stop()
         if not receive_task.done():
             receive_task.cancel()
